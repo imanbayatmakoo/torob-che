@@ -10,3 +10,4 @@ dist/
 
 !backend/app/data/app.duckdb
 docs/categories.html
+.liara.env

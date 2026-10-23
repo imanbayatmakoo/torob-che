@@ -335,7 +335,7 @@ def find_shops(model_key: str, storage_gb: float | None = None, installment_only
                allow_used: bool = False, area: str | None = None, visit_at: str | None = None,
                budget_max: int | None = None) -> dict:
     """All in-person offers for a model, scored and ordered into a walking route."""
-    w, params = _offer_filter_sql(False, allow_used, area)
+    w, params = _offer_filter_sql(installment_only, allow_used, area)
     w = w.replace("o.price_toman is not null", "true")  # keep 'price not listed' shops (call to ask)
     sql = f"""select o.offer_id, o.price_toman, o.price_changed_at, o.warranty_kind, o.warranty_months, o.warranty_text,
                o.registry, o.condition, p.storage_gb, p.ram_gb, p.title, p.product_id,
@@ -362,8 +362,6 @@ def find_shops(model_key: str, storage_gb: float | None = None, installment_only
         parts["warranty"] = {"official": 2.0, "store_test": 0.8, "other": 0.8, "none": 0, "unknown": 0.4}[x["warranty_kind"] or "unknown"]
         parts["registry"] = {"registered": 1.0, "unknown": 0.4, "not_registered": 0}[x["registry"] or "unknown"]
         parts["open"] = {"open": 1.0, "listed": 0.6, "unknown": 0.3, "closed": 0, "closed_then": 0}[op["status"]]
-        if installment_only:
-            parts["installment"] = 1.5 if x["has_installment"] else 0
         if budget_max and x["price_toman"]:
             parts["budget"] = 1.0 if x["price_toman"] <= budget_max else max(0.0, 1 - 10 * (x["price_toman"] / budget_max - 1))
         score = round(sum(parts.values()), 2)

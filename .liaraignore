@@ -1,6 +1,6 @@
 .env
 .venv/
-data/
+/data/
 video/
 __pycache__/
 *.duckdb
@@ -10,7 +10,9 @@ dist/
 
 !backend/app/data/app.duckdb
 .venv
-data/
+/data/
 video/
 scripts/
 backend/tests/
+.liara.env
+.env

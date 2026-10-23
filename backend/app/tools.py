@@ -340,7 +340,7 @@ def find_shops(model_key: str, storage_gb: float | None = None, installment_only
     sql = f"""select o.offer_id, o.price_toman, o.price_changed_at, o.warranty_kind, o.warranty_months, o.warranty_text,
                o.registry, o.condition, p.storage_gb, p.ram_gb, p.title, p.product_id,
                s.shop_id, s.name, s.address, s.area, s.passage, s.floor_label, s.floor_num, s.unit, s.has_installment,
-               s.payment_json, s.hours_json, s.contacts_json, s.real_name, s.fast_delivery
+               s.payment_json, s.hours_json, s.contacts_json, s.real_name, s.fast_delivery, s.lat, s.lon
         from phone_offers o join phones p using(product_id) join shops s using(shop_id)
         where p.model_key = ? and {w}"""
     r = rows(sql, [model_key] + params)
@@ -377,6 +377,7 @@ def find_shops(model_key: str, storage_gb: float | None = None, installment_only
             "registry": x["registry"], "installment": x["has_installment"], "payment_providers": pay,
             "open": op, "score": score, "score_parts": {k: round(v, 2) for k, v in parts.items()},
             "phone_listed": bool(json.loads(x["contacts_json"] or "[]")),
+            "lat": x["lat"], "lon": x["lon"],
         })
     return finalize_shops(model_key, out, pmin, prices)
 
@@ -413,7 +414,8 @@ def walking_route(shops: list[dict]) -> list[dict]:
         g.sort(key=lambda s: (s["floor_num"] if s["floor_num"] is not None else 99))
         for s in g:
             route.append({"step": len(route) + 1, "shop_id": s["shop_id"], "shop_name": s["shop_name"],
-                          "passage": s["passage"], "floor": s["floor"], "unit": s["unit"], "price_label": s["price_label"]})
+                          "passage": s["passage"], "floor": s["floor"], "unit": s["unit"], "price_label": s["price_label"],
+                          "lat": s.get("lat"), "lon": s.get("lon"), "address": s.get("address")})
     return route
 
 

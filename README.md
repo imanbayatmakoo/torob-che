@@ -15,7 +15,9 @@ The four expert categories were chosen for **decision complexity × usable spec 
 
 All modes share the same honesty rules: one offer per seller, closed or over-budget shops are visible but excluded from the plan, area is a hard constraint (the assistant asks before widening it), and installment is a hard filter.
 
-UI: optional dark mode (🌙, saved per device), an area picker next to the installment toggle, and long answers stay at their beginning instead of jumping to the bottom.
+UI: optional dark mode (🌙, saved per device), an area picker next to the installment toggle, and long answers stay at their beginning instead of jumping to the bottom. Product images on every recommendation card. **Tap a shop card to commit to it**: the assistant calls that shop first (simulated) and only falls back to others if it fails. The plan shows an in-app **OpenStreetMap map** (Leaflet) with the shop pin, an optional walking route from your location (OSRM foot routing, only with permission) and one-tap links to OSM, Neshan, Balad and Google Maps. The floor and unit are shown as text, because maps stop at the building entrance.
+
+Branding: the Torob logo is used to show the app is built on Torob's challenge dataset. torob-che is a hackathon entry, not an official Torob product.
 
 ## The 4-step journey (from the challenge brief), plus Step 0
 

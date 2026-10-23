@@ -6,16 +6,18 @@
   <meta name="theme-color" content="#d73948" />
   <title>تربچه (torob-che) — دستیار خرید حضوری</title>
   <script>try{var t=localStorage.getItem("torob_che_theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="icon" href="/assets/torob-logo.png" />
   <link rel="stylesheet" href="/assets/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 </head>
 <body>
   <div id="app">
     <header class="top">
       <div class="brand">
-        <span class="logo">ت</span>
+        <img class="logo" src="/assets/torob-logo.png" alt="لوگوی ترب" width="36" height="36" />
         <div>
           <div class="title">تربچه</div>
-          <div class="sub">گوشی و هر کالایی؛ خرید حضوری بدون سردرگمی</div>
+          <div class="sub">با داده‌های ترب · خرید حضوری بدون سردرگمی</div>
         </div>
       </div>
       <div class="tools">
@@ -47,6 +49,7 @@
       </div>
     </footer>
   </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
   <script src="/assets/app.js"></script>
 </body>
 </html>

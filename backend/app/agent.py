@@ -101,7 +101,9 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {"product_id": {"type": "string"}}, "required": ["product_id"]}}},
     {"type": "function", "function": {
         "name": "contact_shops", "description": "تماس شبیه‌سازی‌شده با بهترین مغازه‌ها برای تأیید موجودی/قیمت/اقساط؛ اگر جواب ندهند خودکار سراغ بعدی می‌رود.",
-        "parameters": {"type": "object", "properties": {"shop_ids": {"type": "array", "items": {"type": "string"}, "description": "اختیاری"}}}}},
+        "parameters": {"type": "object", "properties": {
+            "chosen_shop_id": {"type": "string", "description": "اگر کاربر یک مغازهٔ مشخص را انتخاب کرد؛ اول فقط همان تماس گرفته می‌شود و اگر نشد سراغ بعدی می‌رود"},
+            "shop_ids": {"type": "array", "items": {"type": "string"}, "description": "اختیاری"}}}}},
 ]
 
 
@@ -117,6 +119,7 @@ class Session:
         self.products: list[dict] = []
         self.product_ctx: dict = {}
         self.contacts: list[dict] = []
+        self.chosen_shop_id: str | None = None
         self.stage = 0
         self.updated = time.time()
 
@@ -287,7 +290,8 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
     if name == "contact_shops":
         if not s.shops or not s.model:
             return {"error": "no model/shops selected yet — call find_shops first"}
-        ids = args.get("shop_ids") or []
+        chosen = args.get("chosen_shop_id")
+        ids = ([chosen] if chosen else []) + [i for i in (args.get("shop_ids") or []) if i != chosen]
         pool, seen = [], set()
         for x in [x for x in s.shops if x["shop_id"] in ids] + [x for x in s.shops if x["shop_id"] not in ids]:
             if x["shop_id"] not in seen and x.get("actionable", True):
@@ -300,9 +304,11 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
         emit({"type": "contact_start", "model": s.model, "simulated": True, "note": shop_agent.SIM_NOTE})
         # contact in waves of 3 until 2 confirmed (automatic fallback), max 9 shops
         i = 0
-        while confirmed < 2 and i < len(pool) and tried < 9:
-            wave = pool[i:i + 3]
-            i += 3
+        need = 1 if chosen else 2
+        while confirmed < need and i < len(pool) and tried < 9:
+            step = 1 if (chosen and i == 0) else 3  # user's chosen shop alone first; fallback waves only if it fails
+            wave = pool[i:i + step]
+            i += step
             tried += len(wave)
             res = await shop_agent.contact(wave, s.model["name"], s.model["model_key"], want_inst, _visit_label(p))
             for r_ in res:
@@ -310,6 +316,7 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
                 emit({"type": "contact_result", "data": r_})
             confirmed = len({r_["shop_id"] for r_ in results if r_["status"] == "confirmed"})
         s.contacts = results
+        s.chosen_shop_id = chosen
         s.stage = 4
         plan = build_plan(s)
         emit({"type": "plan", "data": plan})
@@ -326,15 +333,23 @@ def build_plan(s: Session) -> dict:
     ok = [c for c in s.contacts if c["status"] == "confirmed"]
     backup = [c for c in s.contacts if c["status"] == "no_installment"]
     by_id = {x["shop_id"]: x for x in s.shops}
-    stops = sorted(ok, key=lambda c: (c["confirmed_price"] or 1e15))
+    chosen = getattr(s, "chosen_shop_id", None)
+    stops = sorted(ok, key=lambda c: (c["shop_id"] != chosen, c["confirmed_price"] or 1e15))
     route = T.walking_route([by_id[c["shop_id"]] for c in stops])
     cmap = {c["shop_id"]: c for c in stops}
     out = []
     for r in route:
         c = cmap[r["shop_id"]]
         out.append({**r, "confirmed_price": c["confirmed_price"], "price_changed": c["price_changed"],
-                    "installment": c["installment"], "address": by_id[r["shop_id"]]["address"]})
-    return {"model": s.model, "visit_label": _visit_label(s.profile), "stops": out,
+                    "installment": c["installment"], "address": by_id[r["shop_id"]]["address"],
+                    "chosen": r["shop_id"] == chosen})
+    if chosen:
+        out.sort(key=lambda x: not x["chosen"])
+    chosen_failed = None
+    if chosen and not any(x["chosen"] for x in out):
+        cf = next((c for c in s.contacts if c["shop_id"] == chosen), None)
+        chosen_failed = cf and {"shop_name": cf["shop_name"], "status_label": cf["status_label"]}
+    return {"model": s.model, "visit_label": _visit_label(s.profile), "stops": out, "chosen_failed": chosen_failed,
             "backup": [{"shop_name": b["shop_name"], "status_label": b["status_label"]} for b in backup],
             "checklist": (["سلامت جعبه و پلمپ را چک کنید", "کارت گارانتی و نام شرکت گارانتی را ببینید",
                            "کالا را جلوی فروشنده روشن و تست کنید", "فاکتور با نام مدل و سریال بگیرید"]
@@ -424,6 +439,10 @@ def _action_to_tool(s: Session, a: dict) -> tuple[str, dict, str]:
     if t == "select_model":
         nm = a.get("name") or a["model_key"]
         return "find_shops", {"model_key": a["model_key"], "storage_gb": a.get("storage_gb")}, f"{nm} را انتخاب کردم؛ کدام مغازه‌ها دارند؟"
+    if t == "choose_shop":
+        nm = a.get("name") or "این مغازه"
+        return "contact_shops", {"chosen_shop_id": a["shop_id"], "shop_ids": []}, \
+            f"از {nm} می‌خرم؛ قبل از رفتن موجودی را چک کن و مسیرش را نشان بده."
     if t == "contact":
         ids = a.get("shop_ids") or []
         return "contact_shops", {"shop_ids": ids}, "با مغازه‌ها تماس بگیر و موجودی و قیمت را چک کن."

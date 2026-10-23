@@ -662,7 +662,7 @@ def find_product_shops(product_id: str, installment_only: bool = False, area: st
         where.append("o.price is not null and o.price <= ?"); params.append(int(budget_max))
     r = _rows(f"""select o.offer_id, o.price price_toman, o.price_changed_at, o.warranty_kind, o.warranty_months, o.warranty_text,
                s.shop_id, s.name, s.address, s.area, s.passage, s.floor_label, s.floor_num, s.unit, s.has_installment,
-               s.payment_json, s.hours_json, s.contacts_json, p.name title
+               s.payment_json, s.hours_json, s.contacts_json, s.lat, s.lon, p.name title
         from offers o join shops s using(shop_id) join products p using(product_id) where {' and '.join(where)}""", params)
     when = datetime.fromisoformat(visit_at) if visit_at else None
     prices = [x["price_toman"] for x in r if x["price_toman"]]
@@ -690,6 +690,7 @@ def find_product_shops(product_id: str, installment_only: bool = False, area: st
             "registry": "unknown", "installment": x["has_installment"], "payment_providers": pay,
             "open": op, "score": round(sum(parts.values()), 2), "score_parts": {k: round(v, 2) for k, v in parts.items()},
             "phone_listed": bool(json.loads(x["contacts_json"] or "[]")),
+            "lat": x["lat"], "lon": x["lon"],
         })
     r = finalize_shops(product_id, out, pmin, prices)
     r["product_id"] = product_id

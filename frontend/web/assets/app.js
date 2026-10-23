@@ -220,15 +220,26 @@
       const ob = { open: "ok", listed: "", unknown: "", closed: "bad", closed_then: "bad" }[s.open.status];
       const reg = { registered: ["ok", "رجیستر شده"], not_registered: ["bad", "رجیستر نشده"], unknown: ["", "رجیستری نامشخص"] }[s.registry || "unknown"];
       const parts = Object.entries(s.score_parts).map(([k, v]) => `${{ price: "قیمت", freshness: "تازگی", warranty: "گارانتی", registry: "رجیستری", open: "ساعت کاری", installment: "اقساط", budget: "بودجه" }[k]}: ${FA(v)}`).join(" · ");
-      add(el(`<div class="card shop"><div class="rank">${FA(s.rank)}</div>
+      const node = add(el(`<div class="card shop ${s.actionable !== false ? "pick" : ""}" ${s.actionable !== false ? 'role="button" tabindex="0"' : ""} aria-label="انتخاب ${esc(s.shop_name)}"><div class="rank">${FA(s.rank)}</div>
         <div><div><b>${esc(s.shop_name)}</b></div>
           <div class="addr">📍 ${esc([s.passage, s.floor, s.unit].filter(Boolean).join(" · ") || s.address)}</div>
           <div class="badges">${freshBadge(s.freshness)}<span class="badge">📦 ${esc(s.stock.label)}</span>
             <span class="badge ${wb[0]}">${wb[1]}${w.months ? " " + FA(w.months) + " ماهه" : ""}</span><span class="badge ${reg[0]}">${reg[1]}</span>
             <span class="badge ${ob}">${esc(s.open.label.replace(/\d/g, (x) => FA(x)))}</span>${s.installment ? `<span class="badge ok">💳 اقساط: ${esc(s.payment_providers.join("، ") || "دارد")}</span>` : ""}</div>
           ${s.blocked_reason ? `<div class="meta">⛔ ${esc(s.blocked_reason)} — در برنامهٔ تماس و مسیر نمی‌آید</div>` : ""}
-          <details><summary>چرا رتبهٔ ${FA(s.rank)}؟ (امتیاز ${FA(s.score)})</summary>${parts}</details></div>
+          <details><summary>چرا رتبهٔ ${FA(s.rank)}؟ (امتیاز ${FA(s.score)})</summary>${parts}</details>
+          ${s.actionable !== false ? `<div class="tap">👆 از این مغازه می‌خرم — تماس و مسیر</div>` : ""}</div>
         <div class="sprice ${s.over_budget ? "meta" : ""}">${toman(s.price)}${s.over_budget ? "<br><small>بالای بودجه</small>" : ""}</div></div>`));
+      if (s.actionable !== false) {
+        const pick = (e) => {
+          if (e.target.closest("details, summary, a")) return;
+          if (busy) return;
+          node.classList.add("selected");
+          action({ type: "choose_shop", shop_id: s.shop_id, name: s.shop_name });
+        };
+        node.addEventListener("click", pick);
+        node.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(e); } });
+      }
     });
     if (d.route?.length) {
       add(el(`<div class="card"><span class="role">مسیر پیشنهادی در پاساژ (قبل از تماس)</span><ol class="route">${d.route.map((r) => `<li><b>${esc(r.shop_name)}</b> — ${esc([r.passage, r.floor, r.unit].filter(Boolean).join("، "))}</li>`).join("")}</ol></div>`));
@@ -261,13 +272,75 @@
       return;
     }
     const best = p.stops.reduce((a, b) => (a.confirmed_price ?? 1e15) <= (b.confirmed_price ?? 1e15) ? a : b);
-    add(el(`<div class="card plan"><span class="role cheaper">برنامهٔ خرید شما</span>
+    const card = add(el(`<div class="card plan"><span class="role cheaper">برنامهٔ خرید شما</span>
       <h3 style="margin-top:6px;direction:ltr;text-align:right">${esc(p.model.name)}</h3>
       <div class="meta">${p.visit_label ? "🕔 " + esc(p.visit_label) + " · " : ""}بهترین قیمت تأییدشده: <b>${toman(best.confirmed_price)}</b> در ${esc(best.shop_name)}</div>
-      <ol class="route">${p.stops.map((s) => `<li><b>${esc(s.shop_name)}</b> — ${toman(s.confirmed_price)}${s.installment ? " · 💳" : ""}<br><span class="meta">${esc([s.passage, s.floor, s.unit].filter(Boolean).join("، ") || s.address)}</span></li>`).join("")}</ol>
+      <ol class="route">${p.stops.map((s) => `<li><b>${esc(s.shop_name)}</b>${s.chosen ? " ⭐ انتخاب شما" : ""} — ${toman(s.confirmed_price)}${s.installment ? " · 💳" : ""}<br><span class="meta">${esc([s.passage, s.floor, s.unit].filter(Boolean).join("، ") || s.address)}</span></li>`).join("")}</ol>
       ${p.backup.length ? `<div class="meta" style="margin-top:6px">پشتیبان: ${p.backup.map((b) => esc(b.shop_name) + " (" + esc(b.status_label) + ")").join("، ")}</div>` : ""}
+      ${p.chosen_failed ? `<div class="indoor">مغازهٔ انتخابی شما (${esc(p.chosen_failed.shop_name)}) ${esc(p.chosen_failed.status_label)}؛ بهترین جایگزین تأییدشده را نشان می‌دهم.</div>` : ""}
+      <div class="mapwrap"></div>
       <div style="margin-top:8px"><b>چک‌لیست قبل از پرداخت</b></div><ul class="check">${p.checklist.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
       <div class="badges"><span class="badge">تماس‌ها شبیه‌سازی شده‌اند</span></div></div>`));
+    const dest = p.stops.find((x) => x.chosen) || p.stops[0];
+    renderMap(card.querySelector(".mapwrap"), dest, p.stops);
+  }
+
+  // ------------------------------------------------------------ map + directions (OpenStreetMap tiles via Leaflet)
+  function dirLinks(d) {
+    const ll = `${d.lat},${d.lon}`;
+    return `<div class="dir-btns">
+      <a class="primary-link" target="_blank" rel="noopener" href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=%3B${encodeURIComponent(ll)}#map=17/${d.lat}/${d.lon}">🧭 مسیریابی پیاده</a>
+      <a target="_blank" rel="noopener" href="https://neshan.org/maps/@${ll},17z">نشان</a>
+      <a target="_blank" rel="noopener" href="https://balad.ir/location?latitude=${d.lat}&longitude=${d.lon}&zoom=17">بلد</a>
+      <a target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(ll)}&travelmode=walking">Google</a></div>`;
+  }
+  function renderMap(wrap, dest, stops) {
+    if (!wrap || !dest) return;
+    const indoor = [dest.passage, dest.floor, dest.unit].filter(Boolean).join(" · ");
+    if (dest.lat == null || dest.lon == null) {
+      wrap.innerHTML = `<div class="map-fallback">برای این مغازه مختصات ثبت نشده است. آدرس: ${esc(dest.address || indoor)}</div>`;
+      return;
+    }
+    wrap.innerHTML = `<div class="section-title" style="margin-top:8px"><span>🗺️ مسیر تا ${esc(dest.shop_name)}</span></div>
+      <div class="map" role="img" aria-label="نقشهٔ محل مغازه"></div>
+      <div class="dir-btns"><button class="secondary my-route" type="button">📍 مسیر پیاده از موقعیت من</button></div><div class="route-status meta" aria-live="polite">موقعیت فقط با اجازهٔ شما برای مسیریابی استفاده می‌شود. مختصات مقصد از دادهٔ نمونه است؛ قبل از رفتن آدرس را بررسی کنید.</div>${dirLinks(dest)}
+      ${indoor ? `<div class="indoor">📍 داخل پاساژ: ${esc(indoor)} — نقشه شما را تا ورودی ساختمان می‌برد؛ طبقه و پلاک را از تابلوی پاساژ دنبال کنید.</div>` : ""}`;
+    const box = wrap.querySelector(".map");
+    const draw = () => {
+      if (!window.L) { box.outerHTML = `<div class="map-fallback">نقشه بارگذاری نشد؛ از دکمه‌های مسیریابی استفاده کنید.</div>`; return; }
+      const m = L.map(box, { zoomControl: true, attributionControl: true, scrollWheelZoom: false }).setView([dest.lat, dest.lon], 17);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(m);
+      const pts = [];
+      stops.filter((x) => x.lat != null).forEach((x) => {
+        const main = x === dest;
+        L.circleMarker([x.lat, x.lon], { radius: main ? 10 : 7, color: "#fff", weight: 2, fillColor: main ? "#d73948" : "#6b7385", fillOpacity: 1 })
+          .addTo(m).bindPopup(`<b>${esc(x.shop_name)}</b><br>${esc([x.passage, x.floor, x.unit].filter(Boolean).join(" · "))}`);
+        pts.push([x.lat, x.lon]);
+      });
+      if (pts.length > 1) m.fitBounds(pts, { padding: [30, 30], maxZoom: 17 });
+      wrap.querySelector(".my-route").onclick = () => {
+        const status = wrap.querySelector(".route-status");
+        if (!navigator.geolocation) { status.textContent = "مرورگر موقعیت‌یابی ندارد؛ از لینک‌های مسیریابی استفاده کنید."; return; }
+        status.textContent = "در انتظار اجازهٔ موقعیت‌یابی…";
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const me = [pos.coords.latitude, pos.coords.longitude];
+          if (Math.abs(me[0] - dest.lat) > 0.5 || Math.abs(me[1] - dest.lon) > 0.5) { status.textContent = "شما از مقصد دور هستید؛ برای برنامه‌ریزی سفر از دکمه‌های مسیریابی استفاده کنید."; return; }
+          L.circleMarker(me, { radius: 7, color: "#fff", weight: 2, fillColor: "#2b6cb0", fillOpacity: 1 }).addTo(m).bindPopup("شما");
+          status.textContent = "در حال محاسبهٔ مسیر پیاده…";
+          fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${me[1]},${me[0]};${dest.lon},${dest.lat}?overview=full&geometries=geojson`, { signal: AbortSignal.timeout(12000) })
+            .then(r => { if (!r.ok) throw Error("routing"); return r.json(); })
+            .then(r => {
+              if (!r.routes?.length) throw Error("no route");
+              const route = r.routes[0], line = L.geoJSON(route.geometry, { style: { color: "#2b6cb0", weight: 5 } }).addTo(m);
+              m.fitBounds(line.getBounds(), { padding: [25, 25] });
+              status.textContent = `مسیر پیاده: ${FA((route.distance / 1000).toFixed(1))} کیلومتر · حدود ${FA(Math.ceil(route.duration / 60))} دقیقه تا مختصات ساختمان (زمان تخمینی)`;
+            }).catch(() => { status.textContent = "سرویس مسیر در دسترس نیست؛ از دکمه‌های مسیریابی زیر استفاده کنید. مسیر مستقیم را به‌جای مسیر واقعی نشان نمی‌دهیم."; });
+        }, () => { status.textContent = "موقعیت در دسترس نیست یا اجازه داده نشد؛ از لینک‌های مسیریابی استفاده کنید."; }, { timeout: 10000, maximumAge: 600000 });
+      };
+      setTimeout(() => m.invalidateSize(), 50);
+    };
+    if (window.L) draw(); else window.addEventListener("load", draw, { once: true });
+    setTimeout(() => { if (!window.L && box.isConnected) draw(); }, 4000);
   }
 
   // ------------------------------------------------------------ transport
@@ -319,7 +392,7 @@
   }
   function action(a) {
     if (busy) return;
-    const label = { select_product: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, set_area: a.value ? `فقط مغازه‌های ${a.value === "شیخ هادی" ? "جمهوری / شیخ هادی" : a.value}` : "همهٔ مناطق", select_model: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, contact: "با مغازه‌ها تماس بگیر", compare: "مقایسه‌شان کن",
+    const label = { choose_shop: `از ${a.name} می‌خرم؛ موجودی را چک کن و مسیر را نشان بده.`, select_product: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, set_area: a.value ? `فقط مغازه‌های ${a.value === "شیخ هادی" ? "جمهوری / شیخ هادی" : a.value}` : "همهٔ مناطق", select_model: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, contact: "با مغازه‌ها تماس بگیر", compare: "مقایسه‌شان کن",
       toggle_installment: a.value ? "فقط اقساطی" : "اقساط مهم نیست" }[a.type];
     add(el(`<div class="msg user"></div>`), { noScroll: true }).textContent = label;
     post({ action: a });

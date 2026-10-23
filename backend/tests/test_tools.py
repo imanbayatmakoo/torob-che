@@ -72,3 +72,9 @@ def test_simulated_shop_agent_is_deterministic():
     from app import shop_agent
     s = T.find_shops("samsung:a17")["shops"][0]
     assert shop_agent.decide(s, "samsung:a17", True) == shop_agent.decide(s, "samsung:a17", True)
+
+
+def test_shops_and_route_carry_coordinates_for_map():
+    r = T.find_shops("apple:iphone18promax")
+    assert r["shops"] and all("lat" in s and "lon" in s for s in r["shops"])
+    assert all("lat" in x and "lon" in x for x in r["route"])

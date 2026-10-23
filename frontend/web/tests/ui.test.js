@@ -21,3 +21,11 @@ test("no bottom-follow scrolling", () => {
   assert.match(js, /awaitingScroll = false;/);
   assert.match(js, /noScroll: true/);
 });
+
+test("shop cards are clickable and plan has map + directions", () => {
+  assert.match(js, /type: "choose_shop"/);
+  assert.match(js, /role="button" tabindex="0"/);
+  assert.match(js, /function renderMap/);
+  assert.match(js, /openstreetmap\.org\/directions/);
+  assert.match(html, /torob-logo\.png/);
+});

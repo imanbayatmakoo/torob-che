@@ -31,6 +31,8 @@ UI: optional dark mode (🌙, saved per device), an area picker next to the inst
 
 Branding: the Torob logo is used to show the app is built on Torob's challenge dataset. torob-che is a hackathon entry, not an official Torob product.
 
+**Price range slider:** once a category is decided (phones, expert or broad), a two-handle slider appears above the results. Its bounds come from the 5th–95th percentile of real in-person offers in that category, it starts at the user's stated budget, and releasing it re-runs the same search with no typing.
+
 ## The 4-step journey (from the challenge brief), plus Step 0
 
 | Step | What the user gets |

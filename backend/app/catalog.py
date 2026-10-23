@@ -530,7 +530,7 @@ def _product_row(p: dict, specs: dict, ev: dict, expert: bool, score: float, par
 
 def search_products(query: str = "", category: str | None = None, budget_max: int | None = None,
                     installment_only: bool = False, area: str | None = None, priorities: list[str] | None = None,
-                    limit: int = 8, wireless_only: bool = False) -> dict:
+                    limit: int = 8, wireless_only: bool = False, budget_min: int | None = None) -> dict:
     cat = _resolve_category(category) if category else None
     if category and not cat:
         return {"query": query, "category": None, "expert": False, "n_candidates": 0, "products": [], "priorities_applied": [],
@@ -543,6 +543,8 @@ def search_products(query: str = "", category: str | None = None, budget_max: in
         where.append("o.category = ?"); params.append(cat)
     if budget_max:
         where.append("o.price <= ?"); params.append(int(budget_max))
+    if budget_min:
+        where.append("o.price >= ?"); params.append(int(budget_min))
     if installment_only:
         where.append("s.has_installment")
     if area:
@@ -592,7 +594,8 @@ def search_products(query: str = "", category: str | None = None, budget_max: in
     out.sort(key=lambda r: (-r["score"], r["price"], r["product_id"]))
     return {"query": query, "category": cat, "expert": bool(kind), "n_candidates": len(out), "products": out[:limit],
             "priorities_applied": applied, "priorities_ignored": ignored,
-            "filters": {"budget_max": budget_max, "installment_only": installment_only, "area": area},
+            "filters": {"budget_max": budget_max, "budget_min": budget_min, "installment_only": installment_only, "area": area},
+            "price_range": price_range(cat) if cat else None,
             "mode": "expert" if kind else "broad",
             "note": None if kind or not priorities else "اولویت‌ها فقط برای دسته‌های تخصصی اعمال می‌شود؛ در حالت عمومی نادیده گرفته شد"}
 
@@ -750,3 +753,12 @@ def annotate_vs_current(result: dict, current: dict | None) -> None:
                     better.append(f"{label}: {abs(round(100 * diff))}٪ {'بیشتر' if mode == 'hi' else 'کمتر'} از وسیلهٔ فعلی")
         p["vs_current"] = vs
         p["reasons"] = better[:2] + [r for r in p["reasons"] if r not in better]
+
+
+def price_range(category: str) -> dict | None:
+    """Slider bounds for a category: 5th–95th percentile of real new, non-outlier in-person offers."""
+    r = _rows("""select quantile_cont(price, 0.05) lo, quantile_cont(price, 0.95) hi, count(*) n from offers
+                 where category = ? and price is not null and not price_outlier and condition <> 'used'""", [category])
+    if not r or not r[0]["n"] or r[0]["n"] < 5:
+        return None
+    return {"min": int(r[0]["lo"]), "max": int(r[0]["hi"]), "n_offers": r[0]["n"]}

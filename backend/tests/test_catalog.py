@@ -157,3 +157,12 @@ def test_product_words_route_to_expert_category_not_accessories():
     assert A._prefer_expert("کاور هدفون", "کیف و کاور هدفون و هندزفری") == "کیف و کاور هدفون و هندزفری"
     assert A._prefer_expert("پاوربانک سبک", None) == "پاوربانک و شارژر همراه"
     assert A._prefer_expert("جارو برقی", None) is None
+
+
+def test_price_range_and_budget_min_filter():
+    cat = "پاوربانک و شارژر همراه"
+    pr = C.price_range(cat)
+    assert pr and 0 < pr["min"] < pr["max"]
+    r = C.search_products("", cat, 3_000_000, budget_min=2_000_000, limit=5)
+    assert r["products"] and all(2_000_000 <= p["price"] <= 3_000_000 for p in r["products"])
+    assert r["price_range"] == pr

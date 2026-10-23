@@ -441,3 +441,11 @@ def compare_models(model_keys: list[str]) -> list[dict]:
             r["name"] = display_name(t, r["brand_en"], r["model"])
             out.append(r)
     return out
+
+
+def phone_price_range() -> dict:
+    """Slider bounds for phones: 5th–95th percentile of genuine smartphone offers (floor = look-alike guard)."""
+    r = one("""select quantile_cont(o.price_toman, 0.05) lo, quantile_cont(o.price_toman, 0.95) hi, count(*) n
+               from phone_offers o join phones p using(product_id)
+               where o.price_toman is not null and p.segment = 'smartphone' and o.price_toman >= ?""", [MIN_GENUINE_SMARTPHONE])
+    return {"min": int(r["lo"]), "max": int(r["hi"]), "n_offers": r["n"]}

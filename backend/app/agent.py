@@ -94,6 +94,7 @@ TOOLS = [
             "query": {"type": "string", "description": "کلمات کلیدی مدل/برند/نوع، اختیاری"},
             "category": {"type": "string", "description": "نام دقیق دستهٔ ترب"},
             "budget_max": {"type": "integer", "description": "سقف بودجهٔ همین کالا به تومان"},
+            "budget_min": {"type": "integer", "description": "کف قیمت به تومان، اختیاری"},
             "priorities": {"type": "array", "items": {"type": "string"}, "description": "کلیدهای اولویت همان دسته"},
             "current_item_query": {"type": "string", "description": "وسیلهٔ فعلی کاربر در همین دسته، اختیاری"}}}}},
     {"type": "function", "function": {
@@ -186,6 +187,8 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
         s.last_picks = r["picks"]
         s.stage = 1
         s.products = []
+        r["price_range"] = T.phone_price_range()
+        r["filters"] = {"budget_min": p.get("budget_min"), "budget_max": p.get("budget_max")}
         emit({"type": "recommendations", "data": r, "current": s.current})
         return {"picks": [{"role": c["role"], "model_key": c["model_key"], "name": c["name"], "price_from": c["price_from"],
                            "n_shops": c["n_shops"], "n_shops_listing_installment": c["n_inst_shops"], "ratings": c["ratings"], "vs_current": c["vs_current"]} for c in r["picks"]],
@@ -241,15 +244,18 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
             if top and all(w in top[0]["category"].replace(" ", "") or w in top[0]["category"] for w in C.tokenize(args["query"])):
                 cat = top[0]["category"]
         budget = args.get("budget_max") or s.product_ctx.get("budget_max")
-        if cat and s.product_ctx.get("category") and cat != s.product_ctx.get("category") and not args.get("budget_max"):
-            budget = None  # never carry one category's budget into another
+        bmin = args.get("budget_min") if "budget_min" in args else s.product_ctx.get("budget_min")
+        if cat and s.product_ctx.get("category") and cat != s.product_ctx.get("category"):
+            bmin = args.get("budget_min")
+            if not args.get("budget_max"):
+                budget = None  # never carry one category's budget into another
         pri = args.get("priorities") or (s.product_ctx.get("priorities") if cat == s.product_ctx.get("category") else None)
         last_user = next((m["content"] for m in reversed(s.messages) if m.get("role") == "user" and m.get("content")), "")
         wl_text = f"{args.get('query', '')} {last_user if cat == C.EXPERT_HEADPHONES else ''}"
         wireless = cat == C.EXPERT_HEADPHONES and bool(re.search(r"بی ?‌?سیم|بلوتوث|wireless|ایرپاد|ایربادز", wl_text, re.I)) \
             and not re.search(r"با ?‌?سیم می|سیمی می", wl_text)
         r = C.search_products(args.get("query", ""), cat, budget, p.get("installment_only", False), p.get("area"), pri, 3,
-                              wireless_only=wireless)
+                              wireless_only=wireless, budget_min=bmin)
         if wireless:
             r["note"] = (r.get("note") or "") + " فقط مدل‌های بی‌سیم/بلوتوث نشان داده شد."
         cur = None
@@ -258,7 +264,8 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
             cur = C.lookup_current_item(cq, r["category"])
         C.annotate_vs_current(r, cur)
         s.products = r["products"]
-        s.product_ctx = {"category": r["category"] or cat, "budget_max": budget, "priorities": pri, "current_query": cq}
+        s.product_ctx = {"category": r["category"] or cat, "budget_max": budget, "budget_min": bmin, "priorities": pri,
+                         "current_query": cq, "query": args.get("query", "")}
         s.stage = 1
         emit({"type": "products", "data": r, "current": cur})
         return {"mode": r["mode"], "category": r["category"], "n_candidates": r["n_candidates"], "note": r["note"],
@@ -439,6 +446,16 @@ def _action_to_tool(s: Session, a: dict) -> tuple[str, dict, str]:
     if t == "select_model":
         nm = a.get("name") or a["model_key"]
         return "find_shops", {"model_key": a["model_key"], "storage_gb": a.get("storage_gb")}, f"{nm} را انتخاب کردم؛ کدام مغازه‌ها دارند؟"
+    if t == "set_price":
+        lo, hi = int(a["min"]), int(a["max"])
+        txt = f"بازهٔ قیمت را {lo // 100000 / 10:g} تا {hi // 100000 / 10:g} میلیون تومان گذاشتم؛ پیشنهادها را به‌روز کن."
+        if a.get("kind") == "phone":
+            s.profile["budget_min"], s.profile["budget_max"] = lo, hi
+            return "recommend_phones", {}, txt
+        ctx = s.product_ctx
+        return "search_products", {"query": ctx.get("query", ""), "category": ctx.get("category"), "budget_min": lo,
+                                   "budget_max": hi, "priorities": ctx.get("priorities"),
+                                   "current_item_query": ctx.get("current_query")}, txt
     if t == "choose_shop":
         nm = a.get("name") or "این مغازه"
         return "contact_shops", {"chosen_shop_id": a["shop_id"], "shop_ids": []}, \

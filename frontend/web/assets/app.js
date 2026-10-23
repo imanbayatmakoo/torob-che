@@ -129,6 +129,7 @@
   }
 
   function renderRecs(data, cur) {
+    priceSlider(data.price_range, data.filters, "phone");
     if (!data.picks.length) { add(el(`<div class="card"><div class="meta">${esc(data.note || "پیشنهادی پیدا نشد")}</div></div>`)); return; }
     add(el(`<div class="section-title"><span>مرحلهٔ ۱ · ${FA(data.picks.length)} پیشنهاد از بین ${FA(data.considered_models)} مدل در بازار</span></div>`));
     if (cur?.found) add(el(`<div class="legend">نوار‌ها امتیاز ۰ تا ۱۰ هستند؛ خط سیاه = گوشی فعلی شما · ▲ یعنی چقدر بهتر</div>`));
@@ -158,8 +159,40 @@
     night_range_m: ["دید در شب", "متر"], ip_water: ["ضدآب", ""], capacity_mah: ["ظرفیت", "mAh"], output_w: ["خروجی", "وات"], ports: ["درگاه", ""] };
   const specVal = (k, v) => v === true ? "دارد" : v === false ? "ندارد" : k === "anc" ? ({ active: "فعال", call_mic_only: "فقط مکالمه", none: "ندارد" }[v] || v) : k === "ip_water" ? `IPX${FA(v)}` : FA(v);
   const faNum = (t) => esc(t).replace(/\d[\d,.]*/g, (m) => FA(m));
+  // ------------------------------------------------------------ price range slider (two handles, applied on release)
+  function priceSlider(range, filters, kind) {
+    if (!range || !range.max) return;
+    const fmin = filters?.budget_min, fmax = filters?.budget_max;
+    let lo = Math.min(range.min, fmin || range.min, fmax ? Math.round(fmax * 0.5) : range.min);
+    let hi = Math.max(range.max, fmax || 0);
+    if (fmax) hi = Math.min(hi, Math.max(fmax * 2, fmax + (range.max - range.min) * 0.15)); // keep the user's budget in the useful part of the track
+    const raw = (hi - lo) / 100, mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+    const step = [1, 2, 5, 10].map((k) => k * mag).find((v) => v >= raw) || mag;
+    lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    const vMin = fmin ? Math.max(lo, fmin) : lo, vMax = fmax ? Math.min(hi, fmax) : hi;
+    const node = add(el(`<div class="card price-range"><div class="pr-head"><b>💰 بازهٔ قیمت</b><span class="pr-val"></span></div>
+      <div class="pr-sliders"><div class="pr-fill"></div><input type="range" class="pr-min" aria-label="حداقل قیمت" min="${lo}" max="${hi}" step="${step}" value="${vMin}">
+      <input type="range" class="pr-max" aria-label="حداکثر قیمت" min="${lo}" max="${hi}" step="${step}" value="${vMax}"></div>
+      <div class="pr-foot meta"><span>${toman(lo)}</span><span>بازهٔ رایج بازار</span><span>${toman(hi)}</span></div></div>`));
+    const a = node.querySelector(".pr-min"), b = node.querySelector(".pr-max"), val = node.querySelector(".pr-val");
+    const fill = node.querySelector(".pr-fill");
+    const show = () => {
+      val.textContent = `${toman(+a.value)} تا ${toman(+b.value)}`;
+      const p1 = ((+a.value - lo) / (hi - lo)) * 100, p2 = ((+b.value - lo) / (hi - lo)) * 100;
+      fill.style.left = `calc(12px + ${p1}% - ${p1 * 0.24}px)`; fill.style.width = `calc(${p2 - p1}% - ${(p2 - p1) * 0.24}px)`;
+    };
+    const fix = (e) => {
+      if (+a.value > +b.value - step) { if (e.target === a) a.value = +b.value - step; else b.value = +a.value + step; }
+      show();
+    };
+    const apply = () => { if (busy) return; action({ type: "set_price", kind, min: +a.value, max: +b.value }); };
+    [a, b].forEach((x) => { x.addEventListener("input", fix); x.addEventListener("change", apply); });
+    show();
+  }
+
   function renderProducts(data, cur) {
     const prods = data.products || [];
+    if (data.category) priceSlider(data.price_range, data.filters, "product");
     if (!prods.length) {
       add(el(`<div class="card"><div class="meta">${esc(data.note || "با این فیلترها (بودجه/منطقه/اقساط) کالایی در مغازه‌های حضوری پیدا نشد.")}</div><div class="meta">می‌توانید بودجه را بیشتر کنید، منطقه را «همه» بگذارید یا فیلتر اقساط را بردارید.</div></div>`));
       return;
@@ -392,7 +425,7 @@
   }
   function action(a) {
     if (busy) return;
-    const label = { choose_shop: `از ${a.name} می‌خرم؛ موجودی را چک کن و مسیر را نشان بده.`, select_product: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, set_area: a.value ? `فقط مغازه‌های ${a.value === "شیخ هادی" ? "جمهوری / شیخ هادی" : a.value}` : "همهٔ مناطق", select_model: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, contact: "با مغازه‌ها تماس بگیر", compare: "مقایسه‌شان کن",
+    const label = { set_price: `بازهٔ قیمت: ${toman(a.min)} تا ${toman(a.max)}`, choose_shop: `از ${a.name} می‌خرم؛ موجودی را چک کن و مسیر را نشان بده.`, select_product: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, set_area: a.value ? `فقط مغازه‌های ${a.value === "شیخ هادی" ? "جمهوری / شیخ هادی" : a.value}` : "همهٔ مناطق", select_model: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, contact: "با مغازه‌ها تماس بگیر", compare: "مقایسه‌شان کن",
       toggle_installment: a.value ? "فقط اقساطی" : "اقساط مهم نیست" }[a.type];
     add(el(`<div class="msg user"></div>`), { noScroll: true }).textContent = label;
     post({ action: a });

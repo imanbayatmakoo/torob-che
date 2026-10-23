@@ -2,7 +2,7 @@
 (() => {
   const $ = (s, el = document) => el.querySelector(s);
   const feed = $("#feed"), chipsEl = $("#chips"), input = $("#text"), sendBtn = $("#send"), inst = $("#inst");
-  let sessionId = localStorage.getItem("tsc_session") || null;
+  let sessionId = localStorage.getItem("torob_che_session") || null;
   let busy = false, statusEl = null, currentPhone = null, lastStage = 0;
 
   const FA = (n) => String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
@@ -190,7 +190,7 @@
   // ------------------------------------------------------------ transport
   function handle(ev) {
     switch (ev.type) {
-      case "session": sessionId = ev.session_id; localStorage.setItem("tsc_session", sessionId); break;
+      case "session": sessionId = ev.session_id; localStorage.setItem("torob_che_session", sessionId); break;
       case "status": status(ev.text); break;
       case "user_echo": break;
       case "message": clearStatus(); if (ev.text) add(el(`<div class="msg bot"></div>`)).textContent = ev.text; break;
@@ -244,7 +244,7 @@
   sendBtn.onclick = () => send();
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   inst.onchange = () => action({ type: "toggle_installment", value: inst.checked });
-  $("#reset").onclick = () => { localStorage.removeItem("tsc_session"); sessionId = null; currentPhone = null; lastStage = 0; $("#profile").innerHTML = ""; inst.checked = false; welcome(); };
-  localStorage.removeItem("tsc_session"); sessionId = null;
+  $("#reset").onclick = () => { localStorage.removeItem("torob_che_session"); sessionId = null; currentPhone = null; lastStage = 0; $("#profile").innerHTML = ""; inst.checked = false; welcome(); };
+  localStorage.removeItem("torob_che_session"); sessionId = null;
   welcome();
 })();

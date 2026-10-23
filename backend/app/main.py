@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from app import agent
 from app import tools as T
 
-app = FastAPI(title="Torob Shopping Companion")
+app = FastAPI(title="torob-che")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 STATIC = Path(__file__).resolve().parents[2] / "frontend" / "web"
 

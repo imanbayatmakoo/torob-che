@@ -1,4 +1,4 @@
-# همراه خرید ترب · Torob Shopping Companion
+# تربچه · torob-che
 
 **Team Transformers — Starcoach Agentic AI Hackathon, Challenge #7 (Torob)**
 
@@ -43,7 +43,7 @@ pytest                           # 17 tests (parsers, recommender, guardrails, s
 Rebuild the data (needs the raw dataset in `data/torob-dataset/`): `python scripts/build_data.py`
 
 ## Live demo
-https://torob-hamrah.liara.run
+https://torob-che.liara.run
 
 ## Deploy (Liara)
 `liara deploy` uses the `Dockerfile` and `liara.json`. Set the env vars `BOXAPI_API_KEY` and `BOXAPI_BASE_URL` in the Liara panel.

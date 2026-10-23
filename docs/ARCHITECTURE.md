@@ -229,7 +229,7 @@ A guided state machine wrapping an LLM tool-calling loop:
 
 ### 5.9 Repository layout
 ```text
-torob-challenge/
+torob-che/
   backend/app/{main.py, agent/, tools/, data/, llm.py}
   frontend/src/{components/, pages/, api.ts}
   scripts/{build_data.py, reference_phones.csv}

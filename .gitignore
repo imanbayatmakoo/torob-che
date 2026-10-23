@@ -1,7 +1,7 @@
 .env
 .venv/
-data/
-video/
+/data/
+/video/
 __pycache__/
 *.duckdb
 node_modules/

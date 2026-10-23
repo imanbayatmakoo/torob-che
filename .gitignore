@@ -1,0 +1,12 @@
+.env
+.venv/
+data/
+video/
+__pycache__/
+*.duckdb
+node_modules/
+dist/
+.DS_Store
+
+!backend/app/data/app.duckdb
+docs/categories.html

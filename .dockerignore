@@ -1,0 +1,11 @@
+.venv
+.env
+data
+video
+docs/categories.html
+**/__pycache__
+*.pyc
+.git
+backend/tests
+scripts
+node_modules

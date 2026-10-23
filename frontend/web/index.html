@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#d73948" />
+  <title>همراه خرید ترب — خرید حضوری گوشی</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="top">
+      <div class="brand">
+        <span class="logo">ت</span>
+        <div>
+          <div class="title">همراه خرید ترب</div>
+          <div class="sub">خرید حضوری گوشی، بدون سردرگمی</div>
+        </div>
+      </div>
+      <button id="reset" class="ghost" title="شروع دوباره">از اول</button>
+    </header>
+    <nav class="steps" id="steps">
+      <div class="step" data-s="0"><b>۰</b><span>گوشی فعلی</span></div>
+      <div class="step" data-s="1"><b>۱</b><span>مدل مناسب</span></div>
+      <div class="step" data-s="2"><b>۲</b><span>مغازه‌ها</span></div>
+      <div class="step" data-s="3"><b>۳</b><span>مقایسه</span></div>
+      <div class="step" data-s="4"><b>۴</b><span>تماس و مسیر</span></div>
+    </nav>
+    <div class="profile" id="profile"></div>
+    <main id="feed"></main>
+    <footer class="composer">
+      <div class="chips" id="chips"></div>
+      <div class="row">
+        <label class="toggle" title="فقط مغازه‌هایی که اقساط دارند بالاتر بیایند">
+          <input type="checkbox" id="inst" /><span>اقساطی</span>
+        </label>
+        <input id="text" autocomplete="off" placeholder="بنویسید چه گوشی‌ای می‌خواهید…" />
+        <button id="send" class="primary">ارسال</button>
+      </div>
+    </footer>
+  </div>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

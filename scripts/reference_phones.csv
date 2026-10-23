@@ -1,0 +1,92 @@
+brand,model,aliases,year,os,battery_mah,storage_gb,ram_gb,main_mp,screen_in,chipset
+samsung,Galaxy A10,a10|آ10|ای ۱۰,2019,android,3400,32,2,13,6.2,Exynos 7884
+samsung,Galaxy A20,a20,2019,android,4000,32,3,13,6.4,Exynos 7884
+samsung,Galaxy A30,a30,2019,android,4000,64,4,16,6.4,Exynos 7904
+samsung,Galaxy A50,a50,2019,android,4000,128,4,25,6.4,Exynos 9610
+samsung,Galaxy A51,a51,2019,android,4000,128,6,48,6.5,Exynos 9611
+samsung,Galaxy A71,a71,2020,android,4500,128,6,64,6.7,Snapdragon 730
+samsung,Galaxy A11,a11,2020,android,4000,32,2,13,6.4,Snapdragon 450
+samsung,Galaxy A21s,a21s,2020,android,5000,64,4,48,6.5,Exynos 850
+samsung,Galaxy A31,a31,2020,android,5000,128,4,48,6.4,Helio P65
+samsung,Galaxy A12,a12,2020,android,5000,64,4,48,6.5,Helio P35
+samsung,Galaxy A02s,a02s,2020,android,5000,32,3,13,6.5,Snapdragon 450
+samsung,Galaxy A22,a22,2021,android,5000,128,4,48,6.4,Helio G80
+samsung,Galaxy A32,a32,2021,android,5000,128,6,64,6.4,Helio G80
+samsung,Galaxy A52,a52,2021,android,4500,128,8,64,6.5,Snapdragon 720G
+samsung,Galaxy A52s,a52s,2021,android,4500,128,8,64,6.5,Snapdragon 778G
+samsung,Galaxy A72,a72,2021,android,5000,128,8,64,6.7,Snapdragon 720G
+samsung,Galaxy A03,a03,2021,android,5000,32,3,48,6.5,Unisoc T606
+samsung,Galaxy A13,a13,2022,android,5000,64,4,50,6.6,Exynos 850
+samsung,Galaxy A23,a23,2022,android,5000,128,6,50,6.6,Snapdragon 680
+samsung,Galaxy A33,a33,2022,android,5000,128,6,48,6.4,Exynos 1280
+samsung,Galaxy A53,a53,2022,android,5000,128,8,64,6.5,Exynos 1280
+samsung,Galaxy A73,a73,2022,android,5000,128,8,108,6.7,Snapdragon 778G
+samsung,Galaxy A04,a04,2022,android,5000,64,4,50,6.5,Helio P35
+samsung,Galaxy A14,a14,2023,android,5000,64,4,50,6.6,Exynos 850
+samsung,Galaxy A24,a24,2023,android,5000,128,6,50,6.5,Helio G99
+samsung,Galaxy A34,a34,2023,android,5000,128,8,48,6.6,Dimensity 1080
+samsung,Galaxy A54,a54,2023,android,5000,128,8,50,6.4,Exynos 1380
+samsung,Galaxy A05s,a05s,2023,android,5000,128,4,50,6.7,Snapdragon 680
+samsung,Galaxy A15,a15,2023,android,5000,128,4,50,6.5,Helio G99
+samsung,Galaxy A25,a25,2023,android,5000,128,6,50,6.5,Exynos 1280
+samsung,Galaxy A35,a35,2024,android,5000,128,8,50,6.6,Exynos 1380
+samsung,Galaxy A55,a55,2024,android,5000,128,8,50,6.6,Exynos 1480
+samsung,Galaxy S10,s10,2019,android,3400,128,8,12,6.1,Exynos 9820
+samsung,Galaxy S20 FE,s20 fe|s20fe,2020,android,4500,128,6,12,6.5,Exynos 990
+samsung,Galaxy S21,s21,2021,android,4000,128,8,12,6.2,Exynos 2100
+samsung,Galaxy S21 Ultra,s21 ultra,2021,android,5000,128,12,108,6.8,Exynos 2100
+samsung,Galaxy S22,s22,2022,android,3700,128,8,50,6.1,Exynos 2200
+samsung,Galaxy S22 Ultra,s22 ultra,2022,android,5000,128,12,108,6.8,Exynos 2200
+samsung,Galaxy S23,s23,2023,android,3900,128,8,50,6.1,Snapdragon 8 Gen 2
+samsung,Galaxy S23 Ultra,s23 ultra,2023,android,5000,256,12,200,6.8,Snapdragon 8 Gen 2
+samsung,Galaxy S24,s24,2024,android,4000,128,8,50,6.2,Exynos 2400
+samsung,Galaxy Note 10,note 10|note10,2019,android,3500,256,8,12,6.3,Exynos 9825
+samsung,Galaxy Note 20 Ultra,note 20 ultra,2020,android,4500,256,12,108,6.9,Exynos 990
+xiaomi,Redmi Note 8,redmi note 8|note 8|ردمی نوت ۸,2019,android,4000,64,4,48,6.3,Snapdragon 665
+xiaomi,Redmi Note 8 Pro,redmi note 8 pro|note 8 pro,2019,android,4500,128,6,64,6.53,Helio G90T
+xiaomi,Redmi Note 9,redmi note 9|note 9,2020,android,5020,64,3,48,6.53,Helio G85
+xiaomi,Redmi Note 9 Pro,redmi note 9 pro|note 9 pro,2020,android,5020,64,6,64,6.67,Snapdragon 720G
+xiaomi,Redmi Note 9S,redmi note 9s|note 9s,2020,android,5020,64,4,48,6.67,Snapdragon 720G
+xiaomi,Redmi Note 10,redmi note 10|note 10|ردمی نوت ۱۰,2021,android,5000,128,4,48,6.43,Snapdragon 678
+xiaomi,Redmi Note 10 Pro,redmi note 10 pro|note 10 pro,2021,android,5020,128,6,108,6.67,Snapdragon 732G
+xiaomi,Redmi Note 10S,redmi note 10s|note 10s,2021,android,5000,128,6,64,6.43,Helio G95
+xiaomi,Redmi Note 11,redmi note 11|note 11,2022,android,5000,128,4,50,6.43,Snapdragon 680
+xiaomi,Redmi Note 11 Pro,redmi note 11 pro|note 11 pro,2022,android,5000,128,6,108,6.67,Helio G96
+xiaomi,Redmi Note 12,redmi note 12|note 12,2023,android,5000,128,4,50,6.67,Snapdragon 685
+xiaomi,Redmi Note 12 Pro,redmi note 12 pro|note 12 pro,2023,android,5000,128,8,50,6.67,Dimensity 1080
+xiaomi,Redmi Note 13,redmi note 13|note 13,2024,android,5000,128,6,108,6.67,Snapdragon 685
+xiaomi,Redmi Note 13 Pro,redmi note 13 pro|note 13 pro,2024,android,5000,256,8,200,6.67,Helio G99 Ultra
+xiaomi,Redmi 9,redmi 9,2020,android,5020,32,3,13,6.53,Helio G80
+xiaomi,Redmi 9A,redmi 9a,2020,android,5000,32,2,13,6.53,Helio G25
+xiaomi,Redmi 10,redmi 10,2021,android,5000,64,4,50,6.5,Helio G88
+xiaomi,Redmi 12,redmi 12,2023,android,5000,128,4,50,6.79,Helio G88
+xiaomi,Redmi 13C,redmi 13c,2023,android,5000,128,4,50,6.74,Helio G85
+xiaomi,Poco X3 NFC,poco x3|x3 nfc|پوکو x3|پوکو ایکس ۳,2020,android,5160,128,6,64,6.67,Snapdragon 732G
+xiaomi,Poco X3 Pro,poco x3 pro|x3 pro,2021,android,5160,128,6,48,6.67,Snapdragon 860
+xiaomi,Poco X4 Pro,poco x4 pro|x4 pro,2022,android,5000,128,6,108,6.67,Snapdragon 695
+xiaomi,Poco X5 Pro,poco x5 pro|x5 pro,2023,android,5000,256,8,108,6.67,Snapdragon 778G
+xiaomi,Poco X6 Pro,poco x6 pro|x6 pro,2024,android,5000,256,8,64,6.67,Dimensity 8300 Ultra
+xiaomi,Poco F3,poco f3,2021,android,4520,128,6,48,6.67,Snapdragon 870
+xiaomi,Mi 11 Lite,mi 11 lite,2021,android,4250,128,6,64,6.55,Snapdragon 732G
+apple,iPhone 7,iphone 7|آیفون ۷,2016,ios,1960,32,2,12,4.7,Apple A10
+apple,iPhone 8,iphone 8|آیفون ۸,2017,ios,1821,64,2,12,4.7,Apple A11
+apple,iPhone X,iphone x|آیفون ده|آیفون x,2017,ios,2716,64,3,12,5.8,Apple A11
+apple,iPhone XR,iphone xr,2018,ios,2942,64,3,12,6.1,Apple A12
+apple,iPhone XS Max,iphone xs max,2018,ios,3174,64,4,12,6.5,Apple A12
+apple,iPhone 11,iphone 11|آیفون ۱۱,2019,ios,3110,64,4,12,6.1,Apple A13
+apple,iPhone 11 Pro Max,iphone 11 pro max,2019,ios,3969,64,4,12,6.5,Apple A13
+apple,iPhone SE 2020,iphone se|se 2020,2020,ios,1821,64,3,12,4.7,Apple A13
+apple,iPhone 12,iphone 12|آیفون ۱۲,2020,ios,2815,64,4,12,6.1,Apple A14
+apple,iPhone 12 Pro Max,iphone 12 pro max,2020,ios,3687,128,6,12,6.7,Apple A14
+apple,iPhone 13,iphone 13|آیفون ۱۳,2021,ios,3240,128,4,12,6.1,Apple A15
+apple,iPhone 13 Pro Max,iphone 13 pro max,2021,ios,4352,128,6,12,6.7,Apple A15
+apple,iPhone 14,iphone 14|آیفون ۱۴,2022,ios,3279,128,6,12,6.1,Apple A15
+apple,iPhone 14 Pro Max,iphone 14 pro max,2022,ios,4323,128,6,48,6.7,Apple A16
+apple,iPhone 15,iphone 15|آیفون ۱۵,2023,ios,3349,128,6,48,6.1,Apple A16
+apple,iPhone 15 Pro Max,iphone 15 pro max,2023,ios,4441,256,8,48,6.7,Apple A17 Pro
+huawei,Y9 Prime 2019,y9 prime,2019,android,4000,128,4,16,6.59,Kirin 710F
+huawei,Nova 7i,nova 7i,2020,android,4200,128,8,48,6.4,Kirin 810
+honor,X8,honor x8|x8,2022,android,4000,128,6,64,6.7,Snapdragon 680
+honor,X7a,honor x7a|x7a,2023,android,6000,128,4,50,6.74,Helio G37
+nokia,Nokia 105,nokia 105|نوکیا ۱۰۵,2019,feature,800,0.004,0.004,,1.77,MT6261D
+nokia,Nokia 130,nokia 130|نوکیا ۱۳۰,2017,feature,1020,0.008,0.008,0.3,1.8,MT6260A

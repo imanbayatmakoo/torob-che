@@ -228,6 +228,10 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
 
     if name == "search_products":
         cat = args.get("category")
+        if cat and C.EXPERT_KINDS.get(cat) is None:
+            cat = _prefer_expert(args.get("query", "") + " " + cat, cat)
+        if not cat and args.get("query"):
+            cat = _prefer_expert(args["query"], None)
         if not cat and args.get("query"):
             # broad query without a category: pin the category only when every query word is in its name
             top = C.search_categories(args["query"], 1)
@@ -392,6 +396,25 @@ def _status_text(name: str) -> str:
             "find_shops": "پیدا کردن مغازه‌هایی که این گوشی را دارند…", "search_categories": "پیدا کردن دستهٔ کالا…",
             "search_products": "مقایسهٔ کالاهای موجود در بازار…", "find_product_shops": "پیدا کردن مغازه‌هایی که این کالا را دارند…",
             "contact_shops": "تماس (شبیه‌سازی‌شده) با مغازه‌ها…"}.get(name, "…")
+
+
+_EXPERT_HINTS = {
+    "هدفون، هدست و هندزفری": r"هدفون|هدست|هندزفری|ایرپاد|ایربادز|earbud|headphone|airpods",
+    "اسپیکر و سیستم صوتی": r"اسپیکر|بلندگو|speaker",
+    "دوربین مدار بسته": r"مدار ?‌?بسته|دوربین (?:امنیتی|نظارتی|حیاط|wifi|وای ?فای)|cctv",
+    "پاوربانک و شارژر همراه": r"پاور ?‌?بانک|شارژر همراه|power ?bank",
+}
+_ACCESSORY_INTENT = r"کیف|کاور|قاب|کابل|ایرتیپ|سری|بند|استند|پایه|لوازم جانبی|قطعات"
+
+
+def _prefer_expert(text: str, fallback):
+    """Route product words to the expert category unless the user explicitly wants an accessory."""
+    if re.search(_ACCESSORY_INTENT, text or ""):
+        return fallback
+    for cat, rx in _EXPERT_HINTS.items():
+        if re.search(rx, text or "", re.I):
+            return cat
+    return fallback
 
 
 def _action_to_tool(s: Session, a: dict) -> tuple[str, dict, str]:

@@ -148,3 +148,12 @@ def test_product_shops_one_row_per_seller_and_route_actionable():
     ids = [x["shop_id"] for x in s["shops"]]
     assert len(ids) == len(set(ids)) == s["n"]
     assert all(x["actionable"] for x in s["shops"][: s["n_actionable"]])
+
+
+def test_product_words_route_to_expert_category_not_accessories():
+    from app import agent as A
+    from app import catalog as C
+    assert A._prefer_expert("هدفون بی سیم حذف نویز", "کیف و کاور هدفون و هندزفری") == C.EXPERT_HEADPHONES
+    assert A._prefer_expert("کاور هدفون", "کیف و کاور هدفون و هندزفری") == "کیف و کاور هدفون و هندزفری"
+    assert A._prefer_expert("پاوربانک سبک", None) == "پاوربانک و شارژر همراه"
+    assert A._prefer_expert("جارو برقی", None) is None

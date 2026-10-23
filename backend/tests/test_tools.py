@@ -47,8 +47,25 @@ def test_find_shops_honesty_fields():
     assert x["stock"]["status"] == "unconfirmed"
     assert x["freshness"]["tier"] in {"fresh", "recent", "old", "unknown"}
     assert set(x["score_parts"]) >= {"price", "freshness", "warranty", "registry", "open", "budget"}
-    assert [y["score"] for y in s["shops"]] == sorted([y["score"] for y in s["shops"]], reverse=True)
+    keys = [(not y["actionable"], -y["score"]) for y in s["shops"]]
+    assert keys == sorted(keys)
+    assert len({y["shop_id"] for y in s["shops"]}) == s["n"]  # one row per seller
+    route_ids = {y["shop_id"] for y in s["route"]}
+    assert all(y["actionable"] for y in s["shops"] if y["shop_id"] in route_ids)
     assert s["route"] and s["route"][0]["step"] == 1
+
+
+def test_feature_phones_never_count_as_smartphones():
+    r = T.recommend(20_000_000)
+    assert not r["picks"] and r["market_floor"] >= T.MIN_GENUINE_SMARTPHONE
+
+
+def test_installment_simulation_never_invents_unlisted_payment():
+    from app import shop_agent
+    shops = T.find_shops("samsung:a17")["shops"]
+    for s in shops:
+        if not s["installment"]:
+            assert shop_agent.decide(s, "samsung:a17", True)["installment"] in (False, None)
 
 
 def test_simulated_shop_agent_is_deterministic():

@@ -1,7 +1,7 @@
 /* Torob shopping companion — vanilla JS, RTL, mobile-first. All cards render from tool events (never LLM text). */
 (() => {
   const $ = (s, el = document) => el.querySelector(s);
-  const feed = $("#feed"), chipsEl = $("#chips"), input = $("#text"), sendBtn = $("#send"), inst = $("#inst");
+  const feed = $("#feed"), chipsEl = $("#chips"), input = $("#text"), sendBtn = $("#send"), inst = $("#inst"), areaSel = $("#area");
   let sessionId = localStorage.getItem("torob_che_session") || null;
   let busy = false, statusEl = null, currentPhone = null, lastStage = 0;
 
@@ -10,16 +10,52 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const DIM_FA = { camera: "دوربین", battery: "باتری", speed: "سرعت", storage: "حافظه" };
   const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
-  const add = (node) => { feed.appendChild(node); requestAnimationFrame(() => (feed.scrollTop = feed.scrollHeight)); return node; };
+  // Scroll policy: never follow the bottom. Once per request, bring the START of the first
+  // real response node into view (status/loader nodes never trigger it). Manual scrolling cancels it.
+  let awaitingScroll = false, userScrolled = false;
+  const add = (node, opts = {}) => {
+    feed.appendChild(node);
+    if (awaitingScroll && !userScrolled && !opts.noScroll) {
+      awaitingScroll = false;
+      requestAnimationFrame(() => {
+        if (userScrolled) return;
+        const top = node.getBoundingClientRect().top - feed.getBoundingClientRect().top + feed.scrollTop - 8;
+        feed.scrollTop = Math.max(0, top);
+      });
+    }
+    return node;
+  };
+  const markUserScroll = () => { if (busy) userScrolled = true; };
+  ["wheel", "touchmove", "pointerdown", "keydown"].forEach((t) => feed.addEventListener(t, markUserScroll, { passive: true }));
+
+  // Theme (optional dark mode, persisted)
+  const themeBtn = $("#theme");
+  function applyTheme(t, save) {
+    const dark = t === "dark";
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    if (themeBtn) {
+      themeBtn.setAttribute("aria-pressed", String(dark));
+      themeBtn.setAttribute("aria-label", dark ? "بازگشت به حالت روشن" : "فعال‌سازی حالت تیره");
+      themeBtn.title = dark ? "حالت روشن" : "حالت تیره";
+      themeBtn.textContent = dark ? "☀️" : "🌙";
+    }
+    const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = dark ? "#1b1d22" : "#d73948";
+    if (save) { try { localStorage.setItem("torob_che_theme", dark ? "dark" : "light"); } catch (e) {} }
+  }
+  let storedTheme = null; try { storedTheme = localStorage.getItem("torob_che_theme"); } catch (e) {}
+  applyTheme(storedTheme === "dark" ? "dark" : "light", false);
+  if (themeBtn) themeBtn.onclick = () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark", true);
 
   function welcome() {
     feed.innerHTML = "";
     add(el(`<div class="welcome">
-      <h2>سلام! 👋 دنبال گوشی هستید؟</h2>
-      <div>من کمک می‌کنم از بین صدها مدل، گوشی مناسب را پیدا کنید و بدانید <b>کدام مغازهٔ پاساژ</b> دارد، کجاست و قبل از رفتن موجودی‌اش را چک کنید.</div>
-      <ol><li>بگویید بودجه چقدر است و برای چه کسی/چه کاری</li><li>اگر بخواهید بگویید الان چه گوشی‌ای دارید و چه مشکلی دارد</li><li>بقیه‌اش با من 🙂</li></ol>
+      <h2>سلام! 👋 دنبال چه چیزی هستید؟</h2>
+      <div>من کمک می‌کنم از بین هزاران کالای ترب، انتخاب درست را پیدا کنید و بدانید <b>کدام مغازهٔ حضوری</b> دارد، کجاست و قبل از رفتن موجودی‌اش را چک کنید.</div>
+      <div class="mode-note">🎯 مشاور تخصصی: گوشی، هدفون، اسپیکر، دوربین مدار بسته، پاوربانک · 🔎 بقیهٔ دسته‌ها: جست‌وجو و مقایسهٔ مغازه‌ها</div>
+      <ol><li>بگویید بودجه چقدر است و برای چه کسی/چه کاری</li><li>اگر بخواهید بگویید الان چه وسیله‌ای دارید و چه مشکلی دارد</li><li>بقیه‌اش با من 🙂</li></ol>
     </div>`));
-    setChips(["برای مامانم گوشی تا ۷۰ میلیون، دوربین و باتری خوب", "تا ۲۰ میلیون", "گوشی فعلیم A10 است، شارژش زود تموم میشه", "حدود ۱۰۰ میلیون، برای بازی"]);
+    setChips(["برای مامانم گوشی تا ۷۰ میلیون، دوربین و باتری خوب", "گوشی فعلیم A10 است، شارژش زود تموم میشه",
+      "هدفون بی‌سیم با حذف نویز تا ۵ میلیون", "پاوربانک سبک برای سفر تا ۲ میلیون", "دوربین مدار بسته برای حیاط", "یخچال ساید بای ساید"]);
     setStage(0);
   }
 
@@ -42,17 +78,22 @@
     const parts = [];
     if (p.budget_max) parts.push(`💰 تا ${toman(p.budget_max)}`);
     if (p.for_whom) parts.push(`👤 ${esc(p.for_whom)}`);
-    if (p.priorities?.length) parts.push("⭐ " + p.priorities.map((d) => DIM_FA[d]).join("، "));
+    const pri = (p.priorities || []).map((d) => DIM_FA[d]).filter(Boolean);
+    if (pri.length) parts.push("⭐ " + pri.join("، "));
     if (p.current_phone) parts.push(`📱 الان: ${esc(p.current_phone)}`);
     if (p.installment_only) parts.push("💳 اقساطی");
     if (p.area) parts.push(`📍 ${p.area === "شیخ هادی" ? "جمهوری / شیخ هادی" : esc(p.area)}`);
     if (visitLabel) parts.push(`🕔 ${esc(visitLabel)}`);
     box.innerHTML = parts.map((x) => `<span class="pchip">${x}</span>`).join("");
     inst.checked = !!p.installment_only;
+    if (areaSel) {
+      if (p.area && ![...areaSel.options].some((o) => o.value === p.area)) areaSel.appendChild(el(`<option value="${esc(p.area)}">${esc(p.area)}</option>`));
+      areaSel.value = p.area || "";
+    }
   }
 
   function status(text) {
-    if (!statusEl) statusEl = add(el(`<div class="status"><span class="dot"></span><span></span></div>`));
+    if (!statusEl) statusEl = add(el(`<div class="status"><span class="dot"></span><span></span></div>`), { noScroll: true });
     statusEl.lastElementChild.textContent = text;
     feed.appendChild(statusEl);
   }
@@ -112,6 +153,39 @@
     cmp.querySelector("button").onclick = () => action({ type: "compare", model_keys: data.picks.map((p) => p.model_key) });
   }
 
+  const SPEC_FA = { battery_hours: ["باتری", "ساعت"], anc: ["حذف نویز", ""], driver_mm: ["درایور", "mm"], has_mic: ["میکروفون", ""],
+    weight_g: ["وزن", "گرم"], battery_mah: ["باتری", "mAh"], power_w: ["توان", "وات"], bluetooth: ["بلوتوث", ""], resolution_mp: ["رزولوشن", "MP"],
+    night_range_m: ["دید در شب", "متر"], ip_water: ["ضدآب", ""], capacity_mah: ["ظرفیت", "mAh"], output_w: ["خروجی", "وات"], ports: ["درگاه", ""] };
+  const specVal = (k, v) => v === true ? "دارد" : v === false ? "ندارد" : k === "anc" ? ({ active: "فعال", call_mic_only: "فقط مکالمه", none: "ندارد" }[v] || v) : k === "ip_water" ? `IPX${FA(v)}` : FA(v);
+  const faNum = (t) => esc(t).replace(/\d[\d,.]*/g, (m) => FA(m));
+  function renderProducts(data, cur) {
+    const prods = data.products || [];
+    if (!prods.length) {
+      add(el(`<div class="card"><div class="meta">${esc(data.note || "با این فیلترها (بودجه/منطقه/اقساط) کالایی در مغازه‌های حضوری پیدا نشد.")}</div><div class="meta">می‌توانید بودجه را بیشتر کنید، منطقه را «همه» بگذارید یا فیلتر اقساط را بردارید.</div></div>`));
+      return;
+    }
+    add(el(`<div class="section-title"><span>مرحلهٔ ۱ · ${FA(prods.length)} پیشنهاد از بین ${FA(data.n_candidates)} کالا${data.category ? " در «" + esc(data.category) + "»" : ""}</span></div>`));
+    add(el(`<div class="mode-note">${data.expert ? "🎯 حالت تخصصی: رتبه‌بندی بر اساس مشخصات ثبت‌شده، نسبت به همین دسته. مشخصهٔ ثبت‌نشده «نامشخص» است، نه بد." : "🔎 حالت جست‌وجوی عمومی: کالای واقعی و قیمت و مغازه‌ها؛ امتیاز کیفیت برای این دسته نداریم."}</div>`));
+    if (cur) add(el(`<div class="card"><span class="role alternative">نقطهٔ شروع: وسیلهٔ فعلی شما</span><div class="pname" style="margin-top:6px">${esc(cur.name)}</div><div class="badges"><span class="badge info">منبع: ${esc(cur.source_label)}</span></div></div>`));
+    const roles = ["best", "cheaper", "alternative"], labels = data.expert ? ["بهترین تطابق با نیاز شما", "گزینهٔ دوم", "گزینهٔ سوم"] : ["مرتبط‌ترین", "گزینهٔ دیگر", "گزینهٔ دیگر"];
+    prods.forEach((c, i) => {
+      const specs = Object.entries(c.specs || {}).filter(([k]) => SPEC_FA[k]).slice(0, 6).map(([k, v]) => `<span>${SPEC_FA[k][0]}: ${specVal(k, v)} ${SPEC_FA[k][1]}</span>`).join("");
+      const vs = Object.values(c.vs_current || {}).map((x) => `<li class="${x.better ? "good" : "bad"}">${esc(x.label)}: ${FA(x.current)} ← ${FA(x.new)} (${x.pct > 0 ? "+" : ""}${FA(x.pct)}٪)</li>`).join("");
+      const unk = new Set(c.unknowns || []);
+      const node = add(el(`<div class="card ${i === 0 ? "best" : ""}">
+        <span class="role ${roles[i] || "alternative"}">${labels[i] || "گزینهٔ دیگر"}</span>
+        <div class="phead">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : `<div style="font-size:40px">🛍️</div>`}
+          <div><div class="pname">${esc(c.name)}</div><div class="price">از ${toman(c.price)}</div>
+          <div class="meta">${c.brand ? esc(c.brand) + " · " : ""}در ${FA(c.n_shops)} مغازهٔ حضوری${c.n_installment_shops ? ` (${FA(c.n_installment_shops)} اقساطی)` : ""}</div></div></div>
+        ${specs ? `<div class="specs">${specs}</div>` : ""}
+        ${vs ? `<ul class="vs-list">${vs}</ul>` : ""}
+        <ul class="reasons">${(c.reasons || []).map((r) => `<li class="${unk.has(r) ? "unknown" : ""}">${faNum(r)}</li>`).join("")}</ul>
+        <div class="badges"><span class="badge">📦 موجودی تأیید نشده</span>${data.expert ? "" : `<span class="badge">بدون امتیاز کیفیت</span>`}</div>
+        <div class="actions"><button class="primary">کدام مغازه‌ها دارند؟</button></div></div>`));
+      node.querySelector(".primary").onclick = () => action({ type: "select_product", product_id: c.product_id, name: c.name });
+    });
+  }
+
   function renderCompare(rows) {
     if (!rows.length) return;
     const dims = [["min_price", "قیمت از", (v) => toman(v), "min"], ["n_shops", "مغازه‌ها", FA, "max"], ["camera", "دوربین", (v) => v == null ? "—" : FA(v), "max"],
@@ -130,8 +204,14 @@
     const d = ev.data, m = ev.model;
     setStage(3);
     add(el(`<div class="section-title"><span>مرحلهٔ ۲ و ۳ · ${FA(d.n)} مغازهٔ حضوری برای <b style="direction:ltr;display:inline-block">${esc(m.name)}</b></span></div>`));
-    if (ev.fell_back === "area_removed") add(el(`<div class="sim">در منطقهٔ انتخابی شما مغازه‌ای نبود؛ همهٔ مناطق را نشان می‌دهم.</div>`));
-    if (!d.n) { add(el(`<div class="card meta">هیچ مغازهٔ حضوری‌ای این مدل را ثبت نکرده است.</div>`)); return; }
+    if (!d.n) {
+      const o = ev.outside_area;
+      if (o && o.n) {
+        const box = add(el(`<div class="card"><div>در منطقهٔ انتخابی شما مغازه‌ای این کالا را ثبت نکرده است. بیرون از این منطقه <b>${FA(o.n)}</b> مغازه دارند.</div><div class="ask"><button class="primary">همهٔ مناطق را نشان بده</button></div></div>`));
+        box.querySelector("button").onclick = () => setArea("");
+      } else add(el(`<div class="card meta">با این فیلترها هیچ مغازهٔ حضوری‌ای این کالا را ثبت نکرده است.</div>`));
+      return;
+    }
     add(el(`<div class="legend">ترتیب بر اساس قیمت، تازگی قیمت، گارانتی، رجیستری${ev.visit_label ? "، باز بودن در " + esc(ev.visit_label) : ""} و اقساط. روی «چرا؟» بزنید.</div>`));
     const top = d.shops.slice(0, 6);
     top.forEach((s) => {
@@ -146,14 +226,17 @@
           <div class="badges">${freshBadge(s.freshness)}<span class="badge">📦 ${esc(s.stock.label)}</span>
             <span class="badge ${wb[0]}">${wb[1]}${w.months ? " " + FA(w.months) + " ماهه" : ""}</span><span class="badge ${reg[0]}">${reg[1]}</span>
             <span class="badge ${ob}">${esc(s.open.label.replace(/\d/g, (x) => FA(x)))}</span>${s.installment ? `<span class="badge ok">💳 اقساط: ${esc(s.payment_providers.join("، ") || "دارد")}</span>` : ""}</div>
+          ${s.blocked_reason ? `<div class="meta">⛔ ${esc(s.blocked_reason)} — در برنامهٔ تماس و مسیر نمی‌آید</div>` : ""}
           <details><summary>چرا رتبهٔ ${FA(s.rank)}؟ (امتیاز ${FA(s.score)})</summary>${parts}</details></div>
         <div class="sprice ${s.over_budget ? "meta" : ""}">${toman(s.price)}${s.over_budget ? "<br><small>بالای بودجه</small>" : ""}</div></div>`));
     });
     if (d.route?.length) {
       add(el(`<div class="card"><span class="role">مسیر پیشنهادی در پاساژ (قبل از تماس)</span><ol class="route">${d.route.map((r) => `<li><b>${esc(r.shop_name)}</b> — ${esc([r.passage, r.floor, r.unit].filter(Boolean).join("، "))}</li>`).join("")}</ol></div>`));
     }
+    const ok = d.shops.filter((s) => s.actionable !== false);
+    if (!ok.length) { add(el(`<div class="card meta">همهٔ این مغازه‌ها در زمان انتخابی بسته‌اند یا بالای بودجه‌اند. زمان رفتن یا بودجه را عوض کنید.</div>`)); return; }
     const act = add(el(`<div class="card"><div>⚠️ قیمت ثبت‌شده یعنی موجودی نیست. بگذارید قبل از رفتن با مغازه‌ها تماس بگیرم.</div><div class="actions"><button class="primary">📞 تماس با مغازه‌ها (شبیه‌سازی)</button></div></div>`));
-    act.querySelector("button").onclick = () => action({ type: "contact", shop_ids: top.slice(0, 3).map((s) => s.shop_id) });
+    act.querySelector("button").onclick = () => action({ type: "contact", shop_ids: ok.slice(0, 3).map((s) => s.shop_id) });
   }
 
   function renderContactStart(ev) {
@@ -197,6 +280,7 @@
       case "profile": renderProfile(ev.profile, ev.visit_label); break;
       case "current_phone": clearStatus(); renderCurrent(ev.data); break;
       case "recommendations": clearStatus(); setStage(1); renderRecs(ev.data, ev.current); break;
+      case "products": clearStatus(); setStage(1); renderProducts(ev.data, ev.current); break;
       case "compare": clearStatus(); renderCompare(ev.data); break;
       case "shops": clearStatus(); renderShops(ev); break;
       case "contact_start": clearStatus(); renderContactStart(ev); break;
@@ -209,7 +293,7 @@
   }
 
   async function post(body) {
-    if (busy) return; busy = true; sendBtn.disabled = true;
+    if (busy) return; busy = true; sendBtn.disabled = true; awaitingScroll = true; userScrolled = false;
     try {
       const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId, ...body }) });
       const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
@@ -224,27 +308,29 @@
       }
     } catch (e) {
       clearStatus(); add(el(`<div class="msg bot">اتصال قطع شد؛ دوباره تلاش کنید.</div>`));
-    } finally { busy = false; sendBtn.disabled = false; clearStatus(); }
+    } finally { busy = false; awaitingScroll = false; sendBtn.disabled = false; clearStatus(); }
   }
 
   function send(text) {
     text = (text ?? input.value).trim(); if (!text || busy) return;
     input.value = "";
-    add(el(`<div class="msg user"></div>`)).textContent = text;
+    add(el(`<div class="msg user"></div>`), { noScroll: true }).textContent = text;
     post({ text });
   }
   function action(a) {
     if (busy) return;
-    const label = { select_model: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, contact: "با مغازه‌ها تماس بگیر", compare: "مقایسه‌شان کن",
+    const label = { select_product: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, set_area: a.value ? `فقط مغازه‌های ${a.value === "شیخ هادی" ? "جمهوری / شیخ هادی" : a.value}` : "همهٔ مناطق", select_model: `${a.name} را انتخاب کردم؛ کدام مغازه‌ها دارند؟`, contact: "با مغازه‌ها تماس بگیر", compare: "مقایسه‌شان کن",
       toggle_installment: a.value ? "فقط اقساطی" : "اقساط مهم نیست" }[a.type];
-    add(el(`<div class="msg user"></div>`)).textContent = label;
+    add(el(`<div class="msg user"></div>`), { noScroll: true }).textContent = label;
     post({ action: a });
   }
 
   sendBtn.onclick = () => send();
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   inst.onchange = () => action({ type: "toggle_installment", value: inst.checked });
-  $("#reset").onclick = () => { localStorage.removeItem("torob_che_session"); sessionId = null; currentPhone = null; lastStage = 0; $("#profile").innerHTML = ""; inst.checked = false; welcome(); };
+  function setArea(v) { if (areaSel) areaSel.value = v; action({ type: "set_area", value: v }); }
+  if (areaSel) areaSel.onchange = () => setArea(areaSel.value);
+  $("#reset").onclick = () => { localStorage.removeItem("torob_che_session"); sessionId = null; currentPhone = null; lastStage = 0; $("#profile").innerHTML = ""; inst.checked = false; if (areaSel) areaSel.value = ""; welcome(); };
   localStorage.removeItem("torob_che_session"); sessionId = null;
   welcome();
 })();

@@ -83,7 +83,9 @@ def parse_sim(v: str | None) -> int | None:
 
 def parse_os(v: str | None) -> str | None:
     s = norm(v).lower()
-    if "ios" in s or "آی او اس" in s:
+    if "kaios" in s or "kai os" in s:
+        return "feature"  # KaiOS contains "ios" but is a feature-phone OS
+    if re.search(r"\bios\b", s) or "آی او اس" in s:
         return "ios"
     if "android" in s or "اندروید" in s:
         return "android"
@@ -159,7 +161,7 @@ def title_storage_ram(title: str) -> tuple[float | None, float | None]:
         m = re.search(r"(\d{2,4})\s*(?:gb|g\b|گیگ)", t, re.I)
         if m:
             st = float(m.group(1))
-    m = re.search(r"رم\s*(\d{1,2})\s*(گیگ\S*|gb|مگ\S*|mb)?", t, re.I)
+    m = re.search(r"رم\s*(\d{1,4})\s*(گیگ\S*|gb|مگ\S*|mb)?", t, re.I)
     if m:
         unit = (m.group(2) or "gb").lower()
         ram = float(m.group(1)) / (1024 if unit.startswith(("م", "m")) else 1)

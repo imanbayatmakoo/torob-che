@@ -35,7 +35,8 @@ def decide(shop: dict, model_key: str, want_installment: bool) -> dict:
         new_price = price + drift * step
     inst = None
     if want_installment and answered:
-        inst = bool(shop.get("installment")) or _roll(sid, "inst") < 0.45
+        # Only shops whose Torob listing includes an installment provider can be simulated as offering installments.
+        inst = bool(shop.get("installment")) and _roll(sid, model_key, "inst") < 0.9
     return {"answered": answered, "in_stock": in_stock, "price": new_price, "price_changed": drift != 0,
             "installment": inst}
 
@@ -43,17 +44,18 @@ def decide(shop: dict, model_key: str, want_installment: bool) -> dict:
 async def _reply(shop: dict, phone_name: str, d: dict, question: str) -> str:
     if not d["answered"]:
         return ""
-    facts = [f"گوشی: {phone_name} ({shop['variant'].get('storage_gb') or ''} گیگ)",
+    sto = (shop.get("variant") or {}).get("storage_gb")
+    facts = [f"کالا: {phone_name}" + (f" ({sto:g} گیگ)" if sto else ""),
              f"موجود: {'بله' if d['in_stock'] else 'خیر، تمام شده'}"]
     if d["in_stock"] and d["price"]:
         facts.append(f"قیمت امروز: {d['price']:,} تومان" + (" (با قیمت ثبت‌شده فرق دارد)" if d["price_changed"] else ""))
     if d["installment"] is not None:
-        facts.append(f"اقساط: {'دارد (' + '، '.join(shop.get('payment_providers') or ['اقساطی']) + ')' if d['installment'] else 'ندارد، فقط نقد'}")
+        facts.append(f"اقساط: {'دارد؛ روش ثبت‌شده در ترب: ' + '، '.join(shop.get('payment_providers') or ['نامشخص']) if d['installment'] else 'ندارد، فقط نقد'}")
     w = shop.get("warranty") or {}
     if w.get("text"):
         facts.append(f"گارانتی: {w['text']}")
     msgs = [
-        {"role": "system", "content": "تو فروشندهٔ یک مغازهٔ موبایل در پاساژهای تهران هستی. فقط بر اساس «واقعیت‌ها» جواب بده، "
+        {"role": "system", "content": "تو فروشندهٔ یک مغازه در بازار/پاساژهای تهران هستی. فقط بر اساس «واقعیت‌ها» جواب بده، "
                                       "هیچ عدد یا ادعای دیگری نساز. محاوره‌ای، مودب و کوتاه (حداکثر دو جمله)."},
         {"role": "user", "content": f"واقعیت‌ها:\n- " + "\n- ".join(facts) + f"\n\nپیام مشتری: {question}"},
     ]

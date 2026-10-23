@@ -4,6 +4,19 @@
 
 A Persian, RTL, mobile-first AI assistant that makes the hardest everyday purchase, **a mobile phone**, simple for a normal person who wants to buy **in person** from Tehran's phone passages (Jomhouri / Alaedin / Charsoo, Ferdowsi).
 
+## Beyond phones: 4 expert categories + broad discovery for everything else
+
+| Mode | Categories | What the assistant does |
+|---|---|---|
+| **Expert** | Phones (flagship), headphones/earbuds, speakers, CCTV cameras, power banks | Category-specific questions and spec-based ranking (ANC, battery, driver; power, Bluetooth; resolution, night vision, IP rating; capacity, fast-charge watts, weight, ports). Compares against the item you own today when known. Unknown specs are shown as "unknown", never as bad. Look-alikes and accessories (e.g. 2M-toman "AirPods Max", cases) are filtered out. |
+| **Broad** | All other ~3,400 Torob categories | Real products with real in-person offers, prices, shop ranking, simulated follow-up and route. **No quality scores or "better" claims**: we don't have validated specs there, so we say so. |
+
+The four expert categories were chosen for **decision complexity × usable spec coverage × in-person shop coverage**, not catalogue size. Laptops, TVs and smartwatches scored lower on that selection in this snapshot, so they stay in broad mode.
+
+All modes share the same honesty rules: one offer per seller, closed or over-budget shops are visible but excluded from the plan, area is a hard constraint (the assistant asks before widening it), and installment is a hard filter.
+
+UI: optional dark mode (🌙, saved per device), an area picker next to the installment toggle, and long answers stay at their beginning instead of jumping to the bottom.
+
 ## The 4-step journey (from the challenge brief), plus Step 0
 
 | Step | What the user gets |
@@ -26,6 +39,7 @@ backend/app
   main.py          FastAPI, POST /api/chat → Server-Sent Events (cards + messages)
   agent.py         tool-calling orchestrator (BoxAPI gpt-5.4-mini), session state
   tools.py         deterministic tools: lookup_current_phone, recommend, find_shops, compare
+  catalog.py       all-category catalogue: search_categories, search_products (expert/broad), find_product_shops
   shop_agent.py    simulated shop agent (seeded outcomes + LLM-written seller reply)
   data/pq/*.parquet prebuilt data (1.4 MB), loaded into in-memory DuckDB at startup
   data/parsers.py  Persian spec/address parsers (unit tested)
@@ -50,6 +64,6 @@ https://torob-che.liara.run
 
 ## Data notes and limitations
 - Snapshot: Torob dataset; latest price update 2026-10-13.
-- Only about 14 phone shops list installment providers. Installment is therefore a **soft** preference: listed shops rank higher, and the rest are asked in Step 4.
+- Only about 14 phone shops list installment providers. Installment is a **hard filter**: when enabled, only shops listing an installment provider on Torob are shown or contacted, so results can be few.
 - Phone numbers and shop names in the dataset are synthetic; contacting shops is simulated.
 - See `docs/ARCHITECTURE.md` and `docs/DATA_NOTES.md`.

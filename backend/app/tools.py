@@ -378,11 +378,28 @@ def find_shops(model_key: str, storage_gb: float | None = None, installment_only
             "open": op, "score": score, "score_parts": {k: round(v, 2) for k, v in parts.items()},
             "phone_listed": bool(json.loads(x["contacts_json"] or "[]")),
         })
-    out.sort(key=lambda s: -s["score"])
+    return finalize_shops(model_key, out, pmin, prices)
+
+
+def finalize_shops(key: str, out: list[dict], pmin, prices: list) -> dict:
+    """One row per seller (best eligible offer), mark actionable rows, rank, and build the route from actionable only."""
+    # Repeated offer rows of the same shop must not look like extra fallback shops.
+    best_by_shop: dict[str, dict] = {}
+    for o in out:
+        cur = best_by_shop.get(o["shop_id"])
+        if cur is None or (o["score"], -(o["price"] or 10**15)) > (cur["score"], -(cur["price"] or 10**15)):
+            best_by_shop[o["shop_id"]] = o
+    out = list(best_by_shop.values())
+    for o in out:
+        closed = o["open"]["status"] in ("closed", "closed_then")
+        o["actionable"] = not o["over_budget"] and not closed
+        o["blocked_reason"] = "بالاتر از بودجه" if o["over_budget"] else ("در زمان انتخابی بسته است" if closed else None)
+    out.sort(key=lambda s: (not s["actionable"], -s["score"], s["shop_id"]))
     for i, s in enumerate(out):
         s["rank"] = i + 1
-    return {"model_key": model_key, "n": len(out), "shops": out, "price_min": pmin,
-            "price_max": max(prices) if prices else None, "route": walking_route(out[:6])}
+    actionable = [x for x in out if x["actionable"]]
+    return {"model_key": key, "n": len(out), "n_actionable": len(actionable), "shops": out, "price_min": pmin,
+            "price_max": max(prices) if prices else None, "route": walking_route(actionable[:6])}
 
 
 def walking_route(shops: list[dict]) -> list[dict]:

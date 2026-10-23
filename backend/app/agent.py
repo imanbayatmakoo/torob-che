@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 import uuid
 from datetime import datetime
 
+from app import catalog as C
 from app import llm, shop_agent
 from app import tools as T
 
@@ -23,7 +25,8 @@ def _today() -> str:
     return f"{days[now.weekday()]} {now.strftime('%Y-%m-%d %H:%M')} (به وقت تهران)"
 
 
-SYSTEM = """تو «تربچه» (torob-che) هستی: دستیار فارسی‌زبان برای خرید حضوری گوشی موبایل از پاساژهای تهران (جمهوری/علاالدین/چارسو، فردوسی و ...).
+SYSTEM = """تو «تربچه» (torob-che) هستی: دستیار فارسی‌زبان برای خرید حضوری از بازارها و پاساژهای تهران با داده‌های ترب.
+تخصص عمیق: گوشی موبایل + چهار دستهٔ تخصصی (هدفون/هندزفری، اسپیکر، دوربین مدار بسته، پاوربانک). بقیهٔ ۳۴۰۰+ دسته در «حالت جست‌وجوی عمومی» پشتیبانی می‌شوند.
 هدف: سخت‌ترین خرید را برای یک آدم معمولی ساده کنی. کوتاه، گرم و روشن حرف بزن (حداکثر ۳ جملهٔ کوتاه). اصطلاح فنی را ساده کن.
 
 قوانین سخت:
@@ -31,17 +34,30 @@ SYSTEM = """تو «تربچه» (torob-che) هستی: دستیار فارسی‌
 - قیمت ثبت‌شده ≠ موجودی. همیشه بگو موجودی باید تأیید شود (مرحلهٔ تماس).
 - تماس با مغازه‌ها شبیه‌سازی است؛ این را پنهان نکن.
 - اگر بودجه از کف بازار کمتر بود، صادقانه بگو و دو راه بده: کمی بودجه بیشتر (با کف بازار) یا گوشی ساده/دکمه‌ای یا کارکرده (allow_used). هرگز گوشی طرح/کپی پیشنهاد نده.
+- منطقه شرط سخت است: اگر در منطقهٔ انتخابی چیزی نبود، بدون اجازهٔ کاربر منطقه را گسترش نده؛ فقط تعداد گزینه‌های بیرون منطقه را بگو و بپرس.
+- مغازه‌ای که در زمان رفتن بسته است یا بالای بودجه است در برنامهٔ تماس/مسیر نمی‌آید؛ اگر همه این‌طورند، بگو زمان یا بودجه را عوض کند.
 - اقساط فیلتر سخت است: اگر کاربر اقساطی خواست، فقط مدل‌ها و مغازه‌هایی نشان داده می‌شوند که در ترب روش پرداخت اقساطی (ترب‌پی، اسنپ‌پی، دیجی‌پی، تارا، ازکی‌وام) ثبت کرده‌اند. اگر نتیجه کم بود، صادقانه بگو و پیشنهاد بده بودجه را تغییر دهد یا شرط اقساط را بردارد.
 - اگر کاربر گوشی فعلی‌اش را گفت، lookup_current_phone را صدا بزن و پیشنهادها را با «نسبت به گوشی فعلی» قاب کن. اگر پیدا نشد، تخمینت را صریحاً «تخمینی» بنام.
 
-مراحل: (۰) گوشی فعلی و مشکلاتش (اختیاری) → (۱) پیدا کردن مدل درست → (۲) مغازه‌هایی که دارند → (۳) مقایسهٔ مغازه‌ها → (۴) تماس با مغازه‌ها و برنامهٔ رفتن.
+مسیر گوشی: (۰) گوشی فعلی و مشکلاتش (اختیاری) → (۱) پیدا کردن مدل درست → (۲) مغازه‌هایی که دارند → (۳) مقایسهٔ مغازه‌ها → (۴) تماس با مغازه‌ها و برنامهٔ رفتن.
 در شروع، اگر بودجه معلوم نیست فقط یک سؤال بپرس (بودجه + برای چه کسی/چه کاری + گوشی فعلی). حداکثر دو سؤال پشت سر هم؛ وقتی بودجه را داری، recommend_phones را صدا بزن.
 هر وقت اطلاعات تازه‌ای گرفتی (بودجه، اولویت، اقساط، زمان رفتن، گوشی فعلی، مشکلات) اول update_profile را صدا بزن.
-اولویت‌ها و مشکلات فقط از این‌ها: camera, battery, speed, storage. «عکاسی/دوربین»→camera، «شارژ/باتری»→battery، «کندی/هنگ/بازی»→speed، «پر شدن حافظه»→storage.
+اولویت‌ها و مشکلات گوشی فقط از این‌ها: camera, battery, speed, storage. «عکاسی/دوربین»→camera، «شارژ/باتری»→battery، «کندی/هنگ/بازی»→speed، «پر شدن حافظه»→storage.
 مبلغ‌ها را به تومان کامل بفرست (۲۰ میلیون = 20000000). اگر کاربر «تومن» یا «میلیون» گفت همین را تبدیل کن.
 زمان رفتن را به فرمت ISO محلی تهران بفرست (مثلاً 2026-10-24T17:00). امروز: {today}.
-اگر بعد از نمایش پیشنهادها بودجه/اولویت/اقساط/منطقه عوض شد، بعد از update_profile دوباره recommend_phones را صدا بزن تا کارت‌ها به‌روز شوند.
-وقتی کاربر یک مدل انتخاب کرد find_shops را صدا بزن؛ وقتی خواست مطمئن شود/تماس بگیری، contact_shops را صدا بزن.
+اگر بعد از نمایش پیشنهادها بودجه/اولویت/اقساط/منطقه عوض شد، بعد از update_profile دوباره ابزار پیشنهاد همان دسته را صدا بزن تا کارت‌ها به‌روز شوند.
+وقتی کاربر یک گوشی انتخاب کرد find_shops را صدا بزن؛ وقتی خواست مطمئن شود/تماس بگیری، contact_shops را صدا بزن.
+
+مسیر کالاهای غیرگوشی:
+- اگر کاربر چیزی غیر از گوشی خواست، search_products را با category (اگر مطمئن نیستی اول search_categories) و budget_max همان کالا صدا بزن. بودجهٔ گوشی را برای کالای دیگر استفاده نکن.
+- دسته‌های تخصصی و سؤال‌های کلیدی (حداکثر یک سؤال کوتاه قبل از جست‌وجو، اگر بودجه/کاربری مبهم بود):
+  • «هدفون، هدست و هندزفری»: بی‌سیم/باسیم، حذف نویز، مکالمه، ورزش/سبکی، عمر باتری → priorities از battery, noise, sound, mic, light, value
+  • «اسپیکر و سیستم صوتی»: قابل حمل یا خانگی، بلندی صدا، باتری → battery, power, bluetooth, portable, value
+  • «دوربین مدار بسته»: داخل یا بیرون ساختمان، دید در شب، کیفیت تصویر، صدا → resolution, night, weather, audio, value
+  • «پاوربانک و شارژر همراه»: چند بار شارژ گوشی، شارژ سریع، وزن، تعداد پورت → capacity, speed, portable, ports, value
+- اگر کاربر وسیلهٔ فعلی‌اش را گفت (مثلاً «پاوربانک فعلیم ۱۰ هزاره»)، current_item_query را بفرست تا کارت‌ها «نسبت به وسیلهٔ فعلی» مقایسه شوند.
+- برای بقیهٔ دسته‌ها حالت عمومی است: محصول واقعی، قیمت و مغازه‌ها و مشخصات خام نشان داده می‌شود، اما امتیاز کیفیت نداریم؛ این را صادقانه بگو و ادعای «بهتر بودن» نکن.
+- وقتی کاربر یک کالا را انتخاب کرد find_product_shops، و بعد برای تأیید موجودی contact_shops را صدا بزن.
 """
 
 TOOLS = [
@@ -55,7 +71,7 @@ TOOLS = [
             "installment_only": {"type": "boolean"}, "allow_used": {"type": "boolean"},
             "os_pref": {"type": "string", "enum": ["ios", "android", "any"]},
             "visit_at": {"type": "string", "description": "ISO local time, e.g. 2026-10-24T17:00"},
-            "area": {"type": "string", "enum": ["شیخ هادی", "فردوسی"], "description": "شیخ هادی = جمهوری/علاالدین/چارسو"},
+            "area": {"type": "string", "description": "منطقهٔ ثبت‌شده در ترب، مثل «شیخ هادی» (= جمهوری/علاالدین/چارسو)، «فردوسی»، «بهارستان»، «تجریش». برای حذف: «همه»"},
             "for_whom": {"type": "string"}}}}},
     {"type": "function", "function": {
         "name": "lookup_current_phone", "description": "پیدا کردن مشخصات گوشی فعلی کاربر (دیتاست ترب ← جدول مرجع).",
@@ -69,6 +85,20 @@ TOOLS = [
     {"type": "function", "function": {
         "name": "find_shops", "description": "مغازه‌های حضوری که این مدل را دارند، رتبه‌بندی‌شده با مسیر پیشنهادی.",
         "parameters": {"type": "object", "properties": {"model_key": {"type": "string"}, "storage_gb": {"type": "number"}}, "required": ["model_key"]}}},
+    {"type": "function", "function": {
+        "name": "search_categories", "description": "پیدا کردن دستهٔ درست ترب برای یک کالای غیرگوشی (از بین ۳۴۰۰+ دسته).",
+        "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
+    {"type": "function", "function": {
+        "name": "search_products", "description": "پیشنهاد کالاهای غیرگوشی با پیشنهادهای واقعی مغازه‌های حضوری. در دسته‌های تخصصی رتبه‌بندی بر اساس مشخصات؛ در بقیه حالت عمومی. کارت‌ها خودکار نمایش داده می‌شوند.",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string", "description": "کلمات کلیدی مدل/برند/نوع، اختیاری"},
+            "category": {"type": "string", "description": "نام دقیق دستهٔ ترب"},
+            "budget_max": {"type": "integer", "description": "سقف بودجهٔ همین کالا به تومان"},
+            "priorities": {"type": "array", "items": {"type": "string"}, "description": "کلیدهای اولویت همان دسته"},
+            "current_item_query": {"type": "string", "description": "وسیلهٔ فعلی کاربر در همین دسته، اختیاری"}}}}},
+    {"type": "function", "function": {
+        "name": "find_product_shops", "description": "مغازه‌های حضوری که این کالای غیرگوشی را دارند، رتبه‌بندی‌شده با مسیر.",
+        "parameters": {"type": "object", "properties": {"product_id": {"type": "string"}}, "required": ["product_id"]}}},
     {"type": "function", "function": {
         "name": "contact_shops", "description": "تماس شبیه‌سازی‌شده با بهترین مغازه‌ها برای تأیید موجودی/قیمت/اقساط؛ اگر جواب ندهند خودکار سراغ بعدی می‌رود.",
         "parameters": {"type": "object", "properties": {"shop_ids": {"type": "array", "items": {"type": "string"}, "description": "اختیاری"}}}}},
@@ -84,6 +114,8 @@ class Session:
         self.last_picks: list[dict] = []
         self.model: dict | None = None  # {"model_key","name","storage_gb"}
         self.shops: list[dict] = []
+        self.products: list[dict] = []
+        self.product_ctx: dict = {}
         self.contacts: list[dict] = []
         self.stage = 0
         self.updated = time.time()
@@ -125,6 +157,9 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
                 if k == "os_pref" and v == "any":
                     p.pop("os_pref", None)
                     continue
+                if k == "area" and v in ("همه", "همه مناطق", "all"):
+                    p.pop("area", None)
+                    continue
                 p[k] = v
         emit({"type": "profile", "profile": p, "visit_label": _visit_label(p), "current": s.current})
         return {"ok": True, "profile": p}
@@ -147,6 +182,7 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
                         None, None, p.get("area"))
         s.last_picks = r["picks"]
         s.stage = 1
+        s.products = []
         emit({"type": "recommendations", "data": r, "current": s.current})
         return {"picks": [{"role": c["role"], "model_key": c["model_key"], "name": c["name"], "price_from": c["price_from"],
                            "n_shops": c["n_shops"], "n_shops_listing_installment": c["n_inst_shops"], "ratings": c["ratings"], "vs_current": c["vs_current"]} for c in r["picks"]],
@@ -167,26 +203,94 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
         r = T.find_shops(mk, sto, p.get("installment_only", False), p.get("allow_used", False), p.get("area"),
                          p.get("visit_at"), p.get("budget_max"))
         fell_back = None
+        outside_area = None
         if r["n"] == 0 and p.get("area"):
-            r = T.find_shops(mk, sto, p.get("installment_only", False), p.get("allow_used", False), None, p.get("visit_at"), p.get("budget_max"))
-            fell_back = "area_removed"
+            # Never silently relax a requested area: show only a count and ask before expanding.
+            other = T.find_shops(mk, sto, p.get("installment_only", False), p.get("allow_used", False), None, p.get("visit_at"), p.get("budget_max"))
+            outside_area = {"n": other["n"], "n_actionable": other["n_actionable"]}
+            fell_back = "area_empty_ask"
         name_ = pick["name"] if pick else (T.compare_models([mk])[0]["name"] if T.compare_models([mk]) else mk)
         s.model = {"model_key": mk, "name": name_, "storage_gb": sto}
         s.shops = r["shops"]
         s.stage = 2
-        emit({"type": "shops", "data": r, "model": s.model, "fell_back": fell_back, "visit_label": _visit_label(p)})
+        emit({"type": "shops", "data": r, "model": s.model, "fell_back": fell_back, "outside_area": outside_area,
+              "visit_label": _visit_label(p)})
         top = r["shops"][:5]
-        return {"n_shops": r["n"], "price_min": r["price_min"], "price_max": r["price_max"], "fell_back": fell_back,
+        return {"n_shops": r["n"], "n_actionable": r["n_actionable"], "price_min": r["price_min"], "price_max": r["price_max"],
+                "fell_back": fell_back, "outside_area": outside_area,
                 "top": [{"shop_id": x["shop_id"], "name": x["shop_name"], "passage": x["passage"], "price": x["price"],
                          "fresh": x["freshness"]["tier"], "warranty": x["warranty"]["kind"], "open": x["open"]["status"],
-                         "installment": x["installment"]} for x in top]}
+                         "installment": x["installment"], "actionable": x["actionable"], "blocked_reason": x["blocked_reason"]} for x in top]}
+
+    if name == "search_categories":
+        r = C.search_categories(args.get("query", ""), 6)
+        return {"categories": [{k: c[k] for k in ["category", "n_priced_products", "median_price", "expert"]} for c in r]}
+
+    if name == "search_products":
+        cat = args.get("category")
+        if not cat and args.get("query"):
+            # broad query without a category: pin the category only when every query word is in its name
+            top = C.search_categories(args["query"], 1)
+            if top and all(w in top[0]["category"].replace(" ", "") or w in top[0]["category"] for w in C.tokenize(args["query"])):
+                cat = top[0]["category"]
+        budget = args.get("budget_max") or s.product_ctx.get("budget_max")
+        if cat and s.product_ctx.get("category") and cat != s.product_ctx.get("category") and not args.get("budget_max"):
+            budget = None  # never carry one category's budget into another
+        pri = args.get("priorities") or (s.product_ctx.get("priorities") if cat == s.product_ctx.get("category") else None)
+        last_user = next((m["content"] for m in reversed(s.messages) if m.get("role") == "user" and m.get("content")), "")
+        wl_text = f"{args.get('query', '')} {last_user if cat == C.EXPERT_HEADPHONES else ''}"
+        wireless = cat == C.EXPERT_HEADPHONES and bool(re.search(r"بی ?‌?سیم|بلوتوث|wireless|ایرپاد|ایربادز", wl_text, re.I)) \
+            and not re.search(r"با ?‌?سیم می|سیمی می", wl_text)
+        r = C.search_products(args.get("query", ""), cat, budget, p.get("installment_only", False), p.get("area"), pri, 3,
+                              wireless_only=wireless)
+        if wireless:
+            r["note"] = (r.get("note") or "") + " فقط مدل‌های بی‌سیم/بلوتوث نشان داده شد."
+        cur = None
+        cq = args.get("current_item_query") or (s.product_ctx.get("current_query") if cat == s.product_ctx.get("category") else None)
+        if cq and r["category"]:
+            cur = C.lookup_current_item(cq, r["category"])
+        C.annotate_vs_current(r, cur)
+        s.products = r["products"]
+        s.product_ctx = {"category": r["category"] or cat, "budget_max": budget, "priorities": pri, "current_query": cq}
+        s.stage = 1
+        emit({"type": "products", "data": r, "current": cur})
+        return {"mode": r["mode"], "category": r["category"], "n_candidates": r["n_candidates"], "note": r["note"],
+                "priorities_applied": r["priorities_applied"], "priorities_ignored": r["priorities_ignored"],
+                "current_item": cur and {"name": cur["name"], "specs": cur["specs"]},
+                "products": [{"product_id": x["product_id"], "name": x["name"], "price": x["price"], "n_shops": x["n_shops"],
+                              "reasons": x["reasons"], "vs_current": x.get("vs_current")} for x in r["products"]]}
+
+    if name == "find_product_shops":
+        pid = args["product_id"]
+        prod = next((x for x in s.products if x["product_id"] == pid), None) or C.product_details(pid)
+        if not prod:
+            return {"error": "unknown product_id"}
+        r = C.find_product_shops(pid, p.get("installment_only", False), p.get("area"), s.product_ctx.get("budget_max"), p.get("visit_at"))
+        outside_area = None
+        if r["n"] == 0 and p.get("area"):
+            other = C.find_product_shops(pid, p.get("installment_only", False), None, s.product_ctx.get("budget_max"), p.get("visit_at"))
+            outside_area = {"n": other["n"], "n_actionable": other["n_actionable"]}
+        s.model = {"model_key": pid, "name": prod["name"], "storage_gb": None, "kind": "product"}
+        s.shops = r["shops"]
+        s.stage = 2
+        emit({"type": "shops", "data": r, "model": s.model, "fell_back": "area_empty_ask" if outside_area else None,
+              "outside_area": outside_area, "visit_label": _visit_label(p)})
+        return {"n_shops": r["n"], "n_actionable": r["n_actionable"], "price_min": r["price_min"], "outside_area": outside_area,
+                "top": [{"shop_id": x["shop_id"], "name": x["shop_name"], "passage": x["passage"], "price": x["price"],
+                         "open": x["open"]["status"], "actionable": x["actionable"], "blocked_reason": x["blocked_reason"]}
+                        for x in r["shops"][:5]]}
 
     if name == "contact_shops":
         if not s.shops or not s.model:
             return {"error": "no model/shops selected yet — call find_shops first"}
         ids = args.get("shop_ids") or []
-        pool = [x for x in s.shops if x["shop_id"] in ids] + [x for x in s.shops if x["shop_id"] not in ids]
-        pool = [x for x in pool if x["open"]["status"] not in ("closed", "closed_then")] or pool
+        pool, seen = [], set()
+        for x in [x for x in s.shops if x["shop_id"] in ids] + [x for x in s.shops if x["shop_id"] not in ids]:
+            if x["shop_id"] not in seen and x.get("actionable", True):
+                seen.add(x["shop_id"])
+                pool.append(x)
+        if not pool:
+            return {"error": "no actionable shops: all are closed at the chosen time or above budget; ask user to change time/budget"}
         want_inst = bool(p.get("installment_only"))
         results, confirmed, tried = [], 0, 0
         emit({"type": "contact_start", "model": s.model, "simulated": True, "note": shop_agent.SIM_NOTE})
@@ -200,8 +304,7 @@ async def run_tool(s: Session, name: str, args: dict, emit) -> dict:
             for r_ in res:
                 results.append(r_)
                 emit({"type": "contact_result", "data": r_})
-                if r_["status"] == "confirmed":
-                    confirmed += 1
+            confirmed = len({r_["shop_id"] for r_ in results if r_["status"] == "confirmed"})
         s.contacts = results
         s.stage = 4
         plan = build_plan(s)
@@ -229,8 +332,11 @@ def build_plan(s: Session) -> dict:
                     "installment": c["installment"], "address": by_id[r["shop_id"]]["address"]})
     return {"model": s.model, "visit_label": _visit_label(s.profile), "stops": out,
             "backup": [{"shop_name": b["shop_name"], "status_label": b["status_label"]} for b in backup],
-            "checklist": ["سلامت جعبه و پلمپ را چک کنید", "کد رجیستری (همتا) را قبل از پرداخت بررسی کنید",
-                          "کارت گارانتی و نام شرکت گارانتی را ببینید", "فاکتور با IMEI بگیرید"],
+            "checklist": (["سلامت جعبه و پلمپ را چک کنید", "کارت گارانتی و نام شرکت گارانتی را ببینید",
+                           "کالا را جلوی فروشنده روشن و تست کنید", "فاکتور با نام مدل و سریال بگیرید"]
+                          if (s.model or {}).get("kind") == "product" else
+                          ["سلامت جعبه و پلمپ را چک کنید", "کد رجیستری (همتا) را قبل از پرداخت بررسی کنید",
+                           "کارت گارانتی و نام شرکت گارانتی را ببینید", "فاکتور با IMEI بگیرید"]),
             "simulated": True}
 
 
@@ -283,12 +389,15 @@ async def handle(s: Session, user_text: str | None, action: dict | None, emit) -
 def _status_text(name: str) -> str:
     return {"update_profile": "ذخیرهٔ نیازهای شما…", "lookup_current_phone": "بررسی گوشی فعلی شما…",
             "recommend_phones": "مقایسهٔ گوشی‌های موجود در بازار…", "compare_models": "مقایسهٔ مدل‌ها…",
-            "find_shops": "پیدا کردن مغازه‌هایی که این گوشی را دارند…",
+            "find_shops": "پیدا کردن مغازه‌هایی که این گوشی را دارند…", "search_categories": "پیدا کردن دستهٔ کالا…",
+            "search_products": "مقایسهٔ کالاهای موجود در بازار…", "find_product_shops": "پیدا کردن مغازه‌هایی که این کالا را دارند…",
             "contact_shops": "تماس (شبیه‌سازی‌شده) با مغازه‌ها…"}.get(name, "…")
 
 
 def _action_to_tool(s: Session, a: dict) -> tuple[str, dict, str]:
     t = a.get("type")
+    if t == "select_product":
+        return "find_product_shops", {"product_id": a["product_id"]}, f"{a.get('name') or 'این کالا'} را انتخاب کردم؛ کدام مغازه‌ها دارند؟"
     if t == "select_model":
         nm = a.get("name") or a["model_key"]
         return "find_shops", {"model_key": a["model_key"], "storage_gb": a.get("storage_gb")}, f"{nm} را انتخاب کردم؛ کدام مغازه‌ها دارند؟"
@@ -297,6 +406,9 @@ def _action_to_tool(s: Session, a: dict) -> tuple[str, dict, str]:
         return "contact_shops", {"shop_ids": ids}, "با مغازه‌ها تماس بگیر و موجودی و قیمت را چک کن."
     if t == "compare":
         return "compare_models", {"model_keys": a.get("model_keys") or [c["model_key"] for c in s.last_picks]}, "این‌ها را کنار هم مقایسه کن."
+    if t == "set_area":
+        v = a.get("value") or "همه"
+        return "update_profile", {"area": v}, ("همهٔ مناطق" if v == "همه" else f"فقط مغازه‌های {v}") + " — نتیجه‌ها را با این منطقه به‌روز کن."
     if t == "toggle_installment":
         v = bool(a.get("value"))
         return "update_profile", {"installment_only": v}, "فقط مغازه‌های اقساطی" if v else "اقساط مهم نیست"
@@ -305,9 +417,11 @@ def _action_to_tool(s: Session, a: dict) -> tuple[str, dict, str]:
 
 def suggest_chips(s: Session) -> list[str]:
     p = s.profile
+    if s.stage == 1 and s.products:
+        return ["چرا اولی؟", "ارزون‌تر هم هست؟", "قسطی می‌خوام", "فقط مغازه‌های جمهوری"]
     if s.stage == 0:
         if not p.get("budget_max"):
-            return ["تا ۲۰ میلیون", "حدود ۵۰ میلیون", "حدود ۸۰ میلیون", "نمی‌دونم، راهنمایی کن"]
+            return ["تا ۷۰ میلیون، دوربین خوب", "هدفون بی‌سیم با حذف نویز تا ۵ میلیون", "پاوربانک سبک تا ۲ میلیون", "دوربین مدار بسته برای حیاط"]
         return ["دوربین برام مهمه", "شارژ زیاد بمونه", "گوشی فعلیم سامسونگ A10 است"]
     if s.stage == 1:
         return ["چرا اولی؟", "مقایسه‌شون کن", "قسطی می‌خوام", "ارزون‌تر هم هست؟"]

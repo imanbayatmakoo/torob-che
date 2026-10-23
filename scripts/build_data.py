@@ -154,7 +154,7 @@ def main():
             elif storage is not None and storage < 1:
                 os_ = "feature"
         screen = pick(sm, "screen", P.parse_inch)
-        segment = "feature" if (os_ == "feature" or (storage is not None and storage < 1) or (screen and screen < 3.5)) else "smartphone"
+        segment = "feature" if (os_ == "feature" or (storage is not None and storage < 1) or (ram is not None and ram < 1) or (screen and screen < 3.5)) else "smartphone"
         chip = find_chip(sm)
         try:
             images = json.loads(imgs) if nn(imgs) else []

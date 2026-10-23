@@ -27,9 +27,9 @@ backend/app
   agent.py         tool-calling orchestrator (BoxAPI gpt-5.4-mini), session state
   tools.py         deterministic tools: lookup_current_phone, recommend, find_shops, compare
   shop_agent.py    simulated shop agent (seeded outcomes + LLM-written seller reply)
-  data/app.duckdb  prebuilt read-only DB (5 MB): phones, models, offers, shops, reference phones
+  data/pq/*.parquet prebuilt data (1.4 MB), loaded into in-memory DuckDB at startup
   data/parsers.py  Persian spec/address parsers (unit tested)
-scripts/build_data.py   raw Torob CSV → app.duckdb (≈4 s)
+scripts/build_data.py   raw Torob CSV → Parquet (≈4 s)
 ```
 
 ## Run locally
@@ -41,6 +41,9 @@ cd backend && PYTHONPATH=. uvicorn app.main:app --port 8765
 pytest                           # 17 tests (parsers, recommender, guardrails, shop scoring)
 ```
 Rebuild the data (needs the raw dataset in `data/torob-dataset/`): `python scripts/build_data.py`
+
+## Live demo
+https://torob-hamrah.liara.run
 
 ## Deploy (Liara)
 `liara deploy` uses the `Dockerfile` and `liara.json`. Set the env vars `BOXAPI_API_KEY` and `BOXAPI_BASE_URL` in the Liara panel.

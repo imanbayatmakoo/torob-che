@@ -142,7 +142,7 @@ def lookup_current_phone(text: str) -> dict:
         mk = dbest[1]["model_key"]
         p = one("""select model_key, brand_en, model, avg(battery_mah) battery_mah, max(main_mp) main_mp, max(chip_tier) chip_tier,
                    min(storage_gb) storage_gb, min(ram_gb) ram_gb, any_value(chipset) chipset, round(avg(rating_camera),1) camera,
-                   round(avg(rating_battery),1) battery, round(avg(rating_speed),1) speed, round(min(rating_storage),1) storage,
+                   round(avg(rating_battery),1) battery, round(avg(rating_speed),1) speed, round(min(rating_storage),1) "storage",
                    any_value(image) image
                    from phones where model_key=? group by all""", [mk])
         return {"found": True, "source": "dataset", "source_label": "از داده‌های ترب",
@@ -191,7 +191,7 @@ def recommend(budget_max: int, budget_min: int | None = None, priorities: list[s
     cand = rows(f"""
         select p.product_id, p.model_key, p.brand_en, p.brand_fa, p.model, p.title, p.storage_gb, p.ram_gb, p.battery_mah,
                p.main_mp, p.chipset, p.chip_tier, p.os, p.image, p.rating_camera camera, p.rating_battery battery,
-               p.rating_speed speed, p.rating_storage storage, p.speed_basis, p.key_specs_known, p.key_specs_total,
+               p.rating_speed speed, p.rating_storage "storage", p.speed_basis, p.key_specs_known, p.key_specs_total,
                p.filled_fields, p.year,
                min(o.price_toman) price, count(distinct o.shop_id) n_shops, max(o.price_changed_at) last_change,
                count(distinct o.shop_id) filter (where s.has_installment) n_inst_shops
@@ -406,7 +406,7 @@ def shop_detail(shop_id: str) -> dict | None:
 
 def model_specs(model_key: str) -> list[dict]:
     return rows("""select product_id, title, storage_gb, ram_gb, battery_mah, main_mp, selfie_mp, chipset, screen_in, os, year,
-                   rating_camera camera, rating_battery battery, rating_speed speed, rating_storage storage, image
+                   rating_camera camera, rating_battery battery, rating_speed speed, rating_storage "storage", image
                    from phones where model_key=? order by storage_gb""", [model_key])
 
 

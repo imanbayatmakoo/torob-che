@@ -8,7 +8,7 @@ node_modules/
 dist/
 .DS_Store
 
-!backend/app/data/app.duckdb
+
 .venv
 /data/
 video/

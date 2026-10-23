@@ -1,7 +1,7 @@
-"""Build backend/app/data/app.duckdb from the raw Torob CSVs.
+"""Build backend/app/data/pq/*.parquet from the raw Torob CSVs.
 
 Usage:  .venv/bin/python scripts/build_data.py
-Output: backend/app/data/app.duckdb  (phones, phone_offers, shops, reference_phones, meta)
+Output: backend/app/data/pq/*.parquet  (phones, phone_offers, shops, reference_phones, meta)
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 from app.data import parsers as P  # noqa: E402
 
 RAW = ROOT / "data" / "torob-dataset"
-OUT = ROOT / "backend" / "app" / "data" / "app.duckdb"
+PQ = ROOT / "backend" / "app" / "data" / "pq"
 PHONE_CAT = "گوشی موبایل"
 
 BRAND_EN = {
@@ -126,9 +126,7 @@ def pct_rank(values: list[float], v: float | None) -> float | None:
 
 def main():
     t0 = time.time()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    if OUT.exists():
-        OUT.unlink()
+    PQ.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()  # build in memory, then copy only final tables to disk
     for n in ("products", "offers", "shops"):
         load_csv(con, n)
@@ -321,12 +319,13 @@ def main():
         from phones p left join phone_offers o using(product_id) group by 1""")
 
     con.execute("create table meta as select (select max(price_changed_at) from phone_offers) snapshot_at, ? phone_category, current_timestamp built_at", [PHONE_CAT])
-    con.execute(f"attach '{OUT}' as out")
+    # ship as Parquet: portable across DuckDB versions and CPUs (Liara hosts lack AVX2)
+    PQ.mkdir(parents=True, exist_ok=True)
     for t in ("phones", "phone_offers", "shops", "reference_phones", "models", "meta"):
-        con.execute(f"create table out.{t} as select * from {t}")
-    con.execute("detach out")
+        con.execute(f"copy {t} to '{PQ / (t + '.parquet')}' (format parquet, compression zstd)")
     con.close()
-    print(f"built {OUT} ({OUT.stat().st_size/1e6:.1f} MB) in {time.time()-t0:.1f}s")
+    size = sum(f.stat().st_size for f in PQ.glob("*.parquet")) / 1e6
+    print(f"built {PQ} ({size:.1f} MB) in {time.time()-t0:.1f}s")
 
 
 if __name__ == "__main__":

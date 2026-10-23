@@ -11,7 +11,19 @@ A Persian, RTL, mobile-first AI assistant that makes the hardest everyday purcha
 | **Expert** | Phones (flagship), headphones/earbuds, speakers, CCTV cameras, power banks | Category-specific questions and spec-based ranking (ANC, battery, driver; power, Bluetooth; resolution, night vision, IP rating; capacity, fast-charge watts, weight, ports). Compares against the item you own today when known. Unknown specs are shown as "unknown", never as bad. Look-alikes and accessories (e.g. 2M-toman "AirPods Max", cases) are filtered out. |
 | **Broad** | All other ~3,400 Torob categories | Real products with real in-person offers, prices, shop ranking, simulated follow-up and route. **No quality scores or "better" claims**: we don't have validated specs there, so we say so. |
 
-The four expert categories were chosen for **decision complexity × usable spec coverage × in-person shop coverage**, not catalogue size. Laptops, TVs and smartwatches scored lower on that selection in this snapshot, so they stay in broad mode.
+### Why these 5 categories
+
+The decision rule was **decision complexity × usable, comparable specs × in-person shop coverage** in Torob's dataset, not catalogue size. A category qualifies only if the assistant can actually help someone in a passage: it needs specs that matter to the buyer, enough real shops listing it, and a price worth getting right.
+
+| # | Category | Why it is an expert category (dataset snapshot) |
+|---|---|---|
+| 1 | **Mobile phones** (گوشی موبایل), flagship | The hardest everyday purchase: a ~53M toman median price, dozens of specs, look-alikes, registry (همتا) and warranty risk. 806 priced models across 134 in-person shops. |
+| 2 | **Headphones and earbuds** (هدفون، هدست و هندزفری) | Highest complexity plus viability among non-phone categories. Wired vs wireless, active noise cancellation (ANC) vs call-only ENC, battery hours, mic, weight, and many fakes. 1,323 priced products, 251 shops. |
+| 3 | **Speakers** (اسپیکر و سیستم صوتی) | Portable vs home, output watts, battery and Bluetooth trade-offs. 1,031 priced products, 217 shops. |
+| 4 | **CCTV cameras** (دوربین مدار بسته) | A high-stakes, jargon-heavy purchase: resolution, night-vision range, IP water rating for outdoor use, built-in mic. 3,305 priced products, 258 shops. |
+| 5 | **Power banks** (پاوربانک و شارژر همراه) | Real capacity, fast-charge watts, weight and ports are easy to misjudge, and it is a common add-on to a phone. 737 priced products, 170 shops, 37 with installment. Chosen over microphones and LED panels, which have fewer usable specs. |
+
+Laptops (24 in-person shops) and TVs (40 shops) are complex but have too little in-person coverage in this snapshot to plan a passage visit well, so they stay in broad mode with smartwatches and the other ~3,400 categories.
 
 All modes share the same honesty rules: one offer per seller, closed or over-budget shops are visible but excluded from the plan, area is a hard constraint (the assistant asks before widening it), and installment is a hard filter.
 
@@ -57,6 +69,11 @@ cd backend && PYTHONPATH=. uvicorn app.main:app --port 8765
 pytest                           # 17 tests (parsers, recommender, guardrails, shop scoring)
 ```
 Rebuild the data (needs the raw dataset in `data/torob-dataset/`): `python scripts/build_data.py`
+
+## Demo video
+
+- Demo video channel (Telegram): https://t.me/SCAgenticAIHackathonTransfromers
+- Demo script: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
 
 ## Live demo
 https://torob-che.liara.run
